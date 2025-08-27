@@ -1,0 +1,4 @@
+-keep class com.sslcommerz.** { *; }
+-keep class com.sslwireless.** { *; }
+-keepattributes Signature
+-keepattributes *Annotation*
