@@ -1,0 +1,70 @@
+name: mission_dmc
+version: 1.0.0+1
+publish_to: none
+description: Mission DMC is a Dhaka medical mcq app
+environment:
+  sdk: '>=2.18.2 <3.0.0'
+
+dependencies:
+  cupertino_icons: ^1.0.6
+  carousel_slider:
+  cached_network_image:
+  clipboard:
+  dio:
+  flutter_html:
+  file_picker:
+  flutter_spinkit:
+  flutter_sslcommerz:
+  image_cropper:
+  webview_flutter: ^4.4.2
+
+  syncfusion_flutter_pdfviewer:
+  intl:
+  loading_overlay:
+  otp_text_field:
+  package_info_plus:
+  share_plus:
+  wakelock_plus: ^1.2.8
+  streaming_shared_preferences:
+  flutter_inappwebview: ^6.1.5
+  timeago:
+  audioplayers:
+  youtube_player_flutter:
+
+  url_launcher:
+  weekly_calendar:
+  get:
+  #  Firebase stuffs
+#  firebase_core:
+#  cloud_firestore:
+  
+  flutter:
+    sdk: flutter
+  easy_date_timeline: ^1.1.3
+
+#dependency_overrides:
+#  firebase_core_platform_interface:
+
+dev_dependencies:
+  flutter_launcher_icons: ^0.13.1
+  flutter_lints:
+  flutter_test:
+    sdk: flutter
+
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/prepmedLoGo.png"
+  min_sdk_android: 21
+
+flutter:
+  assets:
+    - assets/
+    - assets/images/
+    - assets/shape/
+    - assets/icons/
+    - assets/banners/
+    - assets/profilepageicon/
+    - assets/default/
+    - assets/logos/
+  uses-material-design: true
