@@ -1,4 +1,3 @@
-// import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:get/get.dart';
@@ -18,16 +17,26 @@ class _ChatListViewState extends State<ChatListView> with TickerProviderStateMix
   final AuthController _authController = Get.find();
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
+  late Animation<Offset> _slideAnimation;
+
+  // Contact information
+  final String messengerUrl = 'https://m.me/61580635798139';
+  final String whatsappUrl = 'https://wa.me/8801843716854';
+  final String phoneNumber = 'tel:01843716854';
+  final String emailAddress = 'mailto:support@examhero.app';
 
   @override
   void initState() {
     super.initState();
     _animationController = AnimationController(
-      duration: const Duration(milliseconds: 800),
+      duration: const Duration(milliseconds: 1200),
       vsync: this,
     );
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
+      CurvedAnimation(parent: _animationController, curve: Interval(0.0, 0.7, curve: Curves.easeOut)),
+    );
+    _slideAnimation = Tween<Offset>(begin: Offset(0, 0.3), end: Offset.zero).animate(
+      CurvedAnimation(parent: _animationController, curve: Interval(0.3, 1.0, curve: Curves.elasticOut)),
     );
     _animationController.forward();
   }
@@ -38,33 +47,17 @@ class _ChatListViewState extends State<ChatListView> with TickerProviderStateMix
     super.dispose();
   }
 
-  // Function to open Messenger
-  void _openMessenger() async {
-    const url = 'https://m.me/';
-    if (await canLaunch(url)) {
-      await launch(url);
-    } else {
-      _showErrorSnackbar('Could not open Messenger');
-    }
-  }
-
-  // Function to open WhatsApp
-  void _openWhatsApp() async {
-    const url = 'https://wa.me/';
-    if (await canLaunch(url)) {
-      await launch(url);
-    } else {
-      _showErrorSnackbar('Could not open WhatsApp');
-    }
-  }
-
-  // Function to make a call
-  void _makeCall() async {
-    const url = 'tel:+1234567890';
-    if (await canLaunch(url)) {
-      await launch(url);
-    } else {
-      _showErrorSnackbar('Could not make call');
+  // Launch URL function
+  Future<void> _launchUrl(String url) async {
+    try {
+      final Uri uri = Uri.parse(url);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else {
+        _showErrorSnackbar('Could not launch $url');
+      }
+    } catch (e) {
+      _showErrorSnackbar('Failed to open link');
     }
   }
 
@@ -72,12 +65,31 @@ class _ChatListViewState extends State<ChatListView> with TickerProviderStateMix
     Get.snackbar(
       'Error',
       message,
-      backgroundColor: Colors.red[100],
-      colorText: Colors.red[800],
+      backgroundColor: Colors.red[50],
+      colorText: Colors.red[700],
       snackPosition: SnackPosition.TOP,
       borderRadius: 12,
       margin: EdgeInsets.all(16),
       duration: Duration(seconds: 3),
+      icon: Icon(Icons.error_outline, color: Colors.red[700]),
+      borderColor: Colors.red[200],
+      borderWidth: 1,
+    );
+  }
+
+  void _showSuccessSnackbar(String message) {
+    Get.snackbar(
+      'Success',
+      message,
+      backgroundColor: Colors.green[50],
+      colorText: Colors.green[700],
+      snackPosition: SnackPosition.TOP,
+      borderRadius: 12,
+      margin: EdgeInsets.all(16),
+      duration: Duration(seconds: 2),
+      icon: Icon(Icons.check_circle_outline, color: Colors.green[700]),
+      borderColor: Colors.green[200],
+      borderWidth: 1,
     );
   }
 
@@ -85,244 +97,532 @@ class _ChatListViewState extends State<ChatListView> with TickerProviderStateMix
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey[50],
-      appBar: AppBar(
-        elevation: 0,
-        title: Text(
-          'Messages',
-          style: TextStyle(
-            fontWeight: FontWeight.w600,
-            fontSize: 22,
-            color: Colors.white,
-          ),
-        ),
-        backgroundColor: Colors.indigo[600],
-        centerTitle: true,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(bottom: Radius.circular(20)),
-        ),
-      ),
-      body: FadeTransition(
-        opacity: _fadeAnimation,
-        child: SingleChildScrollView(
-          child: Column(
-            children: [
-              // Quick Actions Section
-              Container(
-                margin: EdgeInsets.all(20),
-                padding: EdgeInsets.all(20),
+      body: CustomScrollView(
+        slivers: [
+          // Modern App Bar
+          SliverAppBar(
+            expandedHeight: 120,
+            floating: false,
+            pinned: true,
+            elevation: 0,
+            backgroundColor: Colors.transparent,
+            flexibleSpace: FlexibleSpaceBar(
+              background: Container(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [Colors.white, Colors.grey[50]!],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
+                    colors: [
+                      Colors.indigo[600]!,
+                      Colors.indigo[400]!,
+                    ],
                   ),
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.08),
-                      spreadRadius: 2,
-                      blurRadius: 15,
-                      offset: Offset(0, 5),
-                    ),
-                  ],
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Quick Actions',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.grey[800],
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                    SizedBox(height: 20),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        _buildActionButton(
-                          onPressed: _openMessenger,
-                          icon: Icons.messenger_outline,
-                          label: 'Messenger',
-                          color: Colors.blue,
-                          gradient: [Colors.blue[400]!, Colors.blue[600]!],
-                        ),
-                        _buildActionButton(
-                          onPressed: _openWhatsApp,
-                          icon: Icons.chat_bubble_outline,
-                          label: 'WhatsApp',
-                          color: Colors.green,
-                          gradient: [Colors.green[400]!, Colors.green[600]!],
-                        ),
-                        _buildActionButton(
-                          onPressed: _makeCall,
-                          icon: Icons.phone_outlined,
-                          label: 'Call',
-                          color: Colors.red,
-                          gradient: [Colors.red[400]!, Colors.red[600]!],
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-
-              // Recent Chats Section
-              Container(
-                margin: EdgeInsets.symmetric(horizontal: 20),
-                padding: EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
-                      spreadRadius: 1,
-                      blurRadius: 10,
-                      offset: Offset(0, 3),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
+                child: SafeArea(
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+                    child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        
-                        Icon(
-                          Icons.more_horiz,
-                          color: Colors.grey[600],
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            Text(
+                              'Live Chat',
+                              style: TextStyle(
+                                fontSize: 28,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
+                            
+                          ],
                         ),
+                        
                       ],
                     ),
-                    SizedBox(height: 30),
+                  ),
+                ),
+              ),
+            ),
+          ),
+
+          // Content
+          SliverToBoxAdapter(
+            child: FadeTransition(
+              opacity: _fadeAnimation,
+              child: SlideTransition(
+                position: _slideAnimation,
+                child: Column(
+                  children: [
+                    SizedBox(height: 20),
                     
-                    // Empty state with beautiful illustration
-                    Center(
+                    // Support Contact Card
+                    Container(
+                      margin: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                      padding: EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [Colors.blue[50]!, Colors.indigo[50]!],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: Colors.indigo[100]!, width: 1),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.indigo.withOpacity(0.1),
+                            spreadRadius: 2,
+                            blurRadius: 15,
+                            offset: Offset(0, 5),
+                          ),
+                        ],
+                      ),
                       child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Container(
-                            width: 120,
-                            height: 120,
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [Colors.indigo[100]!, Colors.indigo[200]!],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
+                          Row(
+                            children: [
+                              Container(
+                                padding: EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: Colors.indigo[100],
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Icon(
+                                  Icons.support_agent,
+                                  color: Colors.indigo[700],
+                                  size: 24,
+                                ),
                               ),
-                              shape: BoxShape.circle,
-                            ),
-                            child: Icon(
-                              Icons.chat_bubble_outline,
-                              size: 50,
-                              color: Colors.indigo[600],
-                            ),
+                              SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Need Help?',
+                                      style: TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.indigo[800],
+                                      ),
+                                    ),
+                                    Text(
+                                      'Contact our support team',
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        color: Colors.indigo[600],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ),
                           SizedBox(height: 20),
-                          Text(
-                            'No conversations yet',
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.grey[700],
-                            ),
-                          ),
-                          SizedBox(height: 8),
-                          Text(
-                            'Start a conversation using the quick actions above',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.grey[500],
-                              height: 1.4,
-                            ),
-                          ),
-                          SizedBox(height: 30),
                           
-                          // Start Chat Button
-                          ElevatedButton.icon(
-                            onPressed: () {
-                              // Add your start chat logic here
-                            },
-                            icon: Icon(Icons.add_comment_outlined),
-                            label: Text('Start New Chat'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.indigo[600],
-                              foregroundColor: Colors.white,
-                              padding: EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(25),
+                          // Contact Methods Grid
+                          GridView.count(
+                            crossAxisCount: 2,
+                            shrinkWrap: true,
+                            physics: NeverScrollableScrollPhysics(),
+                            childAspectRatio: 3,
+                            crossAxisSpacing: 12,
+                            mainAxisSpacing: 12,
+                            children: [
+                              _buildContactMethod(
+                                icon: Icons.facebook,
+                                label: 'Messenger',
+                                color: Colors.blue[600]!,
+                                onTap: () {
+                                  _launchUrl(messengerUrl);
+                                  _showSuccessSnackbar('Opening Messenger...');
+                                },
                               ),
-                              elevation: 2,
-                            ),
+                              _buildContactMethod(
+                                icon: Icons.chat,
+                                label: 'WhatsApp',
+                                color: Colors.green[600]!,
+                                onTap: () {
+                                  _launchUrl(whatsappUrl);
+                                  _showSuccessSnackbar('Opening WhatsApp...');
+                                },
+                              ),
+                              _buildContactMethod(
+                                icon: Icons.phone,
+                                label: 'Call',
+                                color: Colors.orange[600]!,
+                                onTap: () {
+                                  _launchUrl(phoneNumber);
+                                  _showSuccessSnackbar('Initiating call...');
+                                },
+                              ),
+                              _buildContactMethod(
+                                icon: Icons.email,
+                                label: 'Email',
+                                color: Colors.red[600]!,
+                                onTap: () {
+                                  _launchUrl(emailAddress);
+                                  _showSuccessSnackbar('Opening email...');
+                                },
+                              ),
+                            ],
                           ),
                         ],
                       ),
                     ),
+
                     SizedBox(height: 20),
+
+                    // Recent Chats Section
+                    Container(
+                      margin: EdgeInsets.symmetric(horizontal: 20),
+                      padding: EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.05),
+                            spreadRadius: 1,
+                            blurRadius: 15,
+                            offset: Offset(0, 5),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'Recent Conversations',
+                                style: TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.grey[800],
+                                ),
+                              ),
+                              Container(
+                                padding: EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: Colors.grey[100],
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Icon(
+                                  Icons.more_horiz,
+                                  color: Colors.grey[600],
+                                  size: 20,
+                                ),
+                              ),
+                            ],
+                          ),
+                          
+                          SizedBox(height: 30),
+                          
+                          // Enhanced Empty State
+                          _buildEmptyState(),
+                          
+                          SizedBox(height: 20),
+                        ],
+                      ),
+                    ),
+                    
+                    SizedBox(height: 100), // Bottom padding for floating action button
                   ],
                 ),
               ),
-              
-              SizedBox(height: 30),
-            ],
+            ),
           ),
+        ],
+      ),
+      
+      // Floating Action Button
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () {
+          _showNewChatBottomSheet();
+        },
+        backgroundColor: Colors.indigo[600],
+        foregroundColor: Colors.white,
+        elevation: 8,
+        icon: Icon(Icons.add_comment_outlined),
+        label: Text(
+          'New Chat',
+          style: TextStyle(fontWeight: FontWeight.w600),
         ),
       ),
     );
   }
 
-  Widget _buildActionButton({
-    required VoidCallback onPressed,
+  Widget _buildContactMethod({
     required IconData icon,
     required String label,
     required Color color,
-    required List<Color> gradient,
+    required VoidCallback onTap,
   }) {
-    return GestureDetector(
-      onTap: onPressed,
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
       child: Container(
-        width: 85,
+        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.withOpacity(0.2)),
+          boxShadow: [
+            BoxShadow(
+              color: color.withOpacity(0.1),
+              blurRadius: 8,
+              offset: Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: color, size: 18),
+            SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                label,
+                style: TextStyle(
+                  color: color,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        children: [
+          Container(
+            width: 120,
+            height: 120,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Colors.indigo[100]!, Colors.indigo[200]!],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.indigo.withOpacity(0.2),
+                  blurRadius: 20,
+                  offset: Offset(0, 10),
+                ),
+              ],
+            ),
+            child: Icon(
+              Icons.chat_bubble_outline_rounded,
+              size: 50,
+              color: Colors.indigo[600],
+            ),
+          ),
+          SizedBox(height: 24),
+          Text(
+            'No conversations yet',
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.w600,
+              color: Colors.grey[700],
+            ),
+          ),
+          SizedBox(height: 12),
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: 20),
+            child: Text(
+              'Start a conversation with our support team using the contact methods above',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 15,
+                color: Colors.grey[500],
+                height: 1.5,
+              ),
+            ),
+          ),
+          SizedBox(height: 30),
+          
+          // Quick tip card
+          Container(
+            padding: EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.amber[50],
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.amber[200]!),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.lightbulb_outline,
+                  color: Colors.amber[700],
+                  size: 20,
+                ),
+                SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Tip: Use WhatsApp or Messenger for the fastest response',
+                    style: TextStyle(
+                      color: Colors.amber[800],
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showNewChatBottomSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(20),
+            topRight: Radius.circular(20),
+          ),
+        ),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 60,
-              height: 60,
+              margin: EdgeInsets.only(top: 12),
+              height: 4,
+              width: 40,
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: gradient,
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(18),
-                boxShadow: [
-                  BoxShadow(
-                    color: color.withOpacity(0.3),
-                    spreadRadius: 1,
-                    blurRadius: 8,
-                    offset: Offset(0, 4),
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            
+            Padding(
+              padding: EdgeInsets.all(20),
+              child: Column(
+                children: [
+                  Text(
+                    'Start New Conversation',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.grey[800],
+                    ),
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    'Choose your preferred contact method',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                  SizedBox(height: 20),
+                  
+                  // Contact options in bottom sheet
+                  _buildBottomSheetOption(
+                    icon: Icons.chat,
+                    title: 'WhatsApp Chat',
+                    subtitle: 'Instant messaging',
+                    color: Colors.green[600]!,
+                    onTap: () {
+                      Navigator.pop(context);
+                      _launchUrl(whatsappUrl);
+                    },
+                  ),
+                  
+                  _buildBottomSheetOption(
+                    icon: Icons.facebook,
+                    title: 'Messenger',
+                    subtitle: 'Facebook Messenger',
+                    color: Colors.blue[600]!,
+                    onTap: () {
+                      Navigator.pop(context);
+                      _launchUrl(messengerUrl);
+                    },
                   ),
                 ],
               ),
-              child: Icon(
-                icon,
-                color: Colors.white,
-                size: 28,
+            ),
+            
+            SizedBox(height: 20),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBottomSheetOption({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: EdgeInsets.all(16),
+        margin: EdgeInsets.only(bottom: 8),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.05),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.withOpacity(0.2)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(icon, color: color, size: 24),
+            ),
+            SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.grey[800],
+                    ),
+                  ),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                ],
               ),
             ),
-            SizedBox(height: 12),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-                color: Colors.grey[700],
-                letterSpacing: 0.2,
-              ),
-              textAlign: TextAlign.center,
+            Icon(
+              Icons.arrow_forward_ios,
+              size: 16,
+              color: Colors.grey[400],
             ),
           ],
         ),

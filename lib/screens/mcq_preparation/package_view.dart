@@ -16,9 +16,20 @@ import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 import '../../app/modules/info/views/terms_and_conditions_view.dart';
 import '../../config/constants.dart';
 
-class PackageView extends StatefulWidget {
-  const PackageView({super.key});
+class PackageViewController extends GetxController {
+  final selectedPackageIndex = 0.obs;
+  final isTermsAccepted = false.obs;
+  
+  void selectPackage(int index) {
+    selectedPackageIndex.value = index;
+  }
+  
+  void toggleTermsAcceptance() {
+    isTermsAccepted.value = !isTermsAccepted.value;
+  }
+}
 
+class PackageView extends StatefulWidget {
   @override
   _PackageViewState createState() => _PackageViewState();
 }
@@ -27,92 +38,136 @@ class _PackageViewState extends State<PackageView> {
   final BannerController bannerController = Get.find();
   final PackageController _packageController = Get.put(PackageController());
   final AuthController _authController = Get.find();
+  final PackageViewController _controller = Get.put(PackageViewController());
   final TextEditingController _editingControllerReferalCode = TextEditingController();
 
-  late YoutubePlayerController _youtubeController;
-
-  // Selected package tracking
-  final RxInt _selectedPackageIndex = RxInt(1); // Default to 6 months package
-  bool isChecked = false;
+  YoutubePlayerController? _youtubeController;
 
   // Package data
   final List<Map<String, dynamic>> packages = [
     {
-      'duration': 3,
       'title': '৩ মাসের প্যাকেজ',
       'subtitle': 'Basic Course Access',
+      'price': 400,
+      'discount': 10,
       'color': Colors.orange,
-      'discount': '10%',
+      'icon': Icons.access_time_rounded,
+      'duration': 3,
+      'popular': false,
     },
     {
-      'duration': 6,
       'title': '৬ মাসের প্যাকেজ',
       'subtitle': 'Standard Course Access',
-      'color': Colors.blue,
-      'discount': '20%',
+      'price': 600,
+      'discount': 20,
+      'color': Color(0xFF4A90E2),
+      'icon': Icons.star_rounded,
+      'duration': 6,
       'popular': true,
+      'features': [
+        'Priority Support',
+        'Premium Content',
+        'All Device Access',
+      ],
     },
     {
-      'duration': 12,
       'title': '১২ মাসের প্যাকেজ',
       'subtitle': 'Premium Course Access',
+      'price': 1200,
+      'discount': 30,
       'color': Colors.green,
-      'discount': '30%',
+      'icon': Icons.diamond_rounded,
+      'duration': 12,
+      'popular': false,
     },
   ];
 
   @override
   void initState() {
     super.initState();
-    _youtubeController = YoutubePlayerController(
-      initialVideoId: bannerController.packageDetails['video_url'],
-      flags: const YoutubePlayerFlags(
-        autoPlay: false,
-        mute: false,
-      ),
-    );
+    _initializeYouTubePlayer();
+  }
+
+  void _initializeYouTubePlayer() {
+    try {
+      final videoUrl = bannerController.packageDetails['video_url'];
+      if (videoUrl != null && videoUrl.toString().isNotEmpty) {
+        final videoId = YoutubePlayer.convertUrlToId(videoUrl.toString());
+        if (videoId != null) {
+          _youtubeController = YoutubePlayerController(
+            initialVideoId: videoId,
+            flags: const YoutubePlayerFlags(
+              autoPlay: false,
+              mute: false,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      print('Error initializing YouTube player: $e');
+    }
   }
 
   @override
   void dispose() {
-    _youtubeController.dispose();
+    _youtubeController?.dispose();
+    _editingControllerReferalCode.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[50],
-      appBar: AppBar(
-        title: const Text('Purchase Package'),
-        backgroundColor: Theme.of(context).primaryColor,
-        elevation: 0,
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: FutureBuilder(
-          future: _packageController.fetchPackage(),
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.done) {
-              if (snapshot.hasError) {
-                return const Center(
-                  child: Text(
-                    'Error occurred',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                );
-              } else if (snapshot.hasData) {
-                final data = snapshot.data as dynamic;
-                if (data == null || data['title'] == null) {
-                  return Container();
-                }
-                return _packageItem(data: data, context: context);
-              }
-            }
-            return Center(
-              child: SpinKitCubeGrid(
-                color: Theme.of(context).primaryColor,
+      backgroundColor: Color(0xFF4A90E2),
+      body: SafeArea(
+        child: GetX<PackageController>(
+          builder: (packageController) {
+            return LoadingOverlay(
+              isLoading: packageController.loadingOnPurchase.value,
+              progressIndicator: SpinKitPulse(
+                color: Colors.white,
                 size: 50.0,
+              ),
+              child: Column(
+                children: [
+                  _buildAppBar(context),
+                  Expanded(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.grey[50],
+                        borderRadius: BorderRadius.only(
+                          topLeft: Radius.circular(24),
+                          topRight: Radius.circular(24),
+                        ),
+                      ),
+                      child: SingleChildScrollView(
+                        physics: const BouncingScrollPhysics(),
+                        child: Padding(
+                          padding: const EdgeInsets.all(20.0),
+                          child: Column(
+                            children: [
+                              _buildVideoSection(),
+                              const SizedBox(height: 20),
+                              _buildCourseDetailsButton(),
+                              const SizedBox(height: 20),
+                              _buildPackageSelectionTitle(),
+                              const SizedBox(height: 16),
+                              _buildPackagesList(),
+                              const SizedBox(height: 24),
+                              _buildSelectedPackagePrice(),
+                              const SizedBox(height: 20),
+                              _buildPromoCodeSection(),
+                              const SizedBox(height: 20),
+                              _buildTermsAndConditions(),
+                              const SizedBox(height: 24),
+                              _buildPurchaseButton(),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             );
           },
@@ -121,332 +176,258 @@ class _PackageViewState extends State<PackageView> {
     );
   }
 
-  Widget _packageItem({required dynamic data, required BuildContext context}) {
-    return Obx(() {
-      return LoadingOverlay(
-        isLoading: _packageController.loadingOnPurchase.value,
-        progressIndicator: SpinKitCubeGrid(
-          color: Theme.of(context).primaryColor,
-          size: 50.0,
-        ),
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              // YouTube Video
-              Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(15),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
-                      spreadRadius: 2,
-                      blurRadius: 8,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(15),
-                  child: YoutubePlayer(
-                    controller: _youtubeController,
-                    showVideoProgressIndicator: true,
-                    progressIndicatorColor: Theme.of(context).primaryColor,
-                  ),
-                ),
+  Widget _buildAppBar(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: IconButton(
+              icon: Icon(
+                Icons.arrow_back_ios_new_rounded,
+                color: Colors.white,
+                size: 20,
               ),
-              const SizedBox(height: 20),
-
-              // Course Details Button
-              InkWell(
-                onTap: () {
-                  Get.defaultDialog(
-                    title: 'Course Description',
-                    content: Text(bannerController.packageDetails['description']),
-                  );
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).primaryColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    'Course Details >',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Theme.of(context).primaryColor,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 25),
-
-              // Main Course Title
-              Text(
-                data['title'],
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w900,
-                  color: Colors.green.shade900,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 25),
-
-              // Package Selection Cards
-              Text(
-                'Choose Your Package',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.grey[800],
-                ),
-              ),
-              const SizedBox(height: 15),
-
-              // Package Cards
-              ...packages.asMap().entries.map((entry) {
-                int index = entry.key;
-                Map<String, dynamic> package = entry.value;
-                return Obx(() => _buildPackageCard(package, index, context));
-              }).toList(),
-
-              const SizedBox(height: 25),
-
-              // Price Display
-              Obx(() {
-                final originalPrice = int.parse(bannerController.packageDetails['price']);
-                final selectedPackage = packages[_selectedPackageIndex.value];
-                bannerController.finalPrice.value = (originalPrice * selectedPackage['duration']).toInt();
-
-                return Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [Colors.green[50]!, Colors.green[100]!],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(15),
-                    border: Border.all(color: Colors.green[300]!, width: 2),
-                  ),
-                  child: Column(
-                    children: [
-                      Text(
-                        'Total Price',
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: Colors.grey[700],
-                        ),
-                      ),
-                      const SizedBox(height: 5),
-                      Text(
-                        '${bannerController.finalPrice.value} ৳',
-                        style: const TextStyle(
-                          fontSize: 28,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.green,
-                        ),
-                      ),
-                      Text(
-                        'for ${selectedPackage['duration']} months',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey[600],
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }),
-
-              const SizedBox(height: 20),
-
-              // Promo Code Field
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(15),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
-                      spreadRadius: 1,
-                      blurRadius: 10,
-                      offset: const Offset(0, 3),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Have a Promo Code?',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.grey[800],
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: rPrimaryTextField(
-                            controller: _editingControllerReferalCode,
-                            keyboardType: TextInputType.text,
-                            borderColor: Theme.of(context).primaryColor,
-                            hintText: 'Enter your promo code',
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        ElevatedButton(
-                          onPressed: () {
-                            bannerController.checkPromo(
-                                code: _editingControllerReferalCode.text.trim());
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Theme.of(context).primaryColor,
-                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-                          ),
-                          child: const Text('Apply'),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 20),
-
-              // Terms and Conditions Checkbox
-              Container(
-                padding: const EdgeInsets.all(15),
-                decoration: BoxDecoration(
-                  color: Colors.blue[50],
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: Colors.blue[200]!),
-                ),
-                child: Row(
-                  children: [
-                    Checkbox(
-                      value: isChecked,
-                      onChanged: (bool? value) {
-                        setState(() {
-                          isChecked = value ?? false;
-                        });
-                      },
-                      activeColor: Theme.of(context).primaryColor,
-                    ),
-                    Expanded(
-                      child: GestureDetector(
-                        onTap: () {
-                          // Get.to(() => TermsAndConditionsView(authController: _authController));
-                        },
-                        child: const Text(
-                          "I agree to the Terms & Conditions, Privacy Policy, Refund Policy, and About App.",
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.blue,
-                            decoration: TextDecoration.underline,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 25),
-
-              // Purchase Button
-              SizedBox(
-                width: double.infinity,
-                height: 50,
-                child: ElevatedButton(
-                  onPressed: () async {
-                    await _handlePurchase(data, context);
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Theme.of(context).primaryColor,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(25),
-                    ),
-                    elevation: 3,
-                  ),
-                  child: const Text(
-                    'Purchase Now',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-              ),
-            ],
+              onPressed: () => Navigator.pop(context),
+            ),
           ),
-        ),
-      );
-    });
+          Text(
+            'Purchase\nPackage',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          ),
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: IconButton(
+              icon: Icon(
+                Icons.shopping_bag_outlined,
+                color: Colors.white,
+                size: 20,
+              ),
+              onPressed: () {},
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
-  Widget _buildPackageCard(Map<String, dynamic> package, int index, BuildContext context) {
-    final bool isSelected = _selectedPackageIndex.value == index;
-    final bool isPopular = package['popular'] == true;
-
-    return GestureDetector(
-      onTap: () {
-        _selectedPackageIndex.value = index;
-      },
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 15),
-        decoration: BoxDecoration(
-          gradient: isSelected
-              ? LinearGradient(
-                  colors: [package['color'].withOpacity(0.1), package['color'].withOpacity(0.05)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                )
-              : null,
-          color: isSelected ? null : Colors.white,
-          borderRadius: BorderRadius.circular(15),
-          border: Border.all(
-            color: isSelected ? package['color'] : Colors.grey[300]!,
-            width: isSelected ? 2 : 1,
+  Widget _buildVideoSection() {
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
-          boxShadow: [
-            BoxShadow(
-              color: isSelected ? package['color'].withOpacity(0.2) : Colors.black.withOpacity(0.05),
-              spreadRadius: isSelected ? 2 : 1,
-              blurRadius: isSelected ? 15 : 8,
-              offset: const Offset(0, 3),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: _youtubeController != null
+            ? YoutubePlayer(
+                controller: _youtubeController!,
+                showVideoProgressIndicator: true,
+                progressIndicatorColor: Color(0xFF4A90E2),
+                aspectRatio: 16 / 9,
+              )
+            : Container(
+                height: 200,
+                color: Colors.black,
+                child: Center(
+                  child: Container(
+                    width: 80,
+                    height: 80,
+                    decoration: BoxDecoration(
+                      color: Colors.red,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(
+                      Icons.play_arrow_rounded,
+                      color: Colors.white,
+                      size: 40,
+                    ),
+                  ),
+                ),
+              ),
+      ),
+    );
+  }
+
+  Widget _buildCourseDetailsButton() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 16),
+      decoration: BoxDecoration(
+        color: Color(0xFF4A90E2).withOpacity(0.1),
+        borderRadius: BorderRadius.circular(25),
+        border: Border.all(
+          color: Color(0xFF4A90E2).withOpacity(0.3),
+          width: 2,
+        ),
+      ),
+      child: InkWell(
+        onTap: () {
+          final description = bannerController.packageDetails['description'];
+          if (description != null) {
+            Get.defaultDialog(
+              title: 'Course Description',
+              titleStyle: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF4A90E2),
+              ),
+              content: Container(
+                padding: const EdgeInsets.all(16),
+                child: Text(
+                  description.toString(),
+                  style: const TextStyle(fontSize: 14),
+                ),
+              ),
+              confirm: TextButton(
+                onPressed: () => Get.back(),
+                child: Text(
+                  'Close',
+                  style: TextStyle(
+                    color: Color(0xFF4A90E2),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            );
+          }
+        },
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.info_outline_rounded,
+              color: Color(0xFF4A90E2),
+              size: 20,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'Course Details',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF4A90E2),
+              ),
+            ),
+            const SizedBox(width: 4),
+            Icon(
+              Icons.arrow_forward_ios_rounded,
+              color: Color(0xFF4A90E2),
+              size: 16,
             ),
           ],
         ),
+      ),
+    );
+  }
+
+
+  Widget _buildPackageSelectionTitle() {
+    return Row(
+      children: [
+        Container(
+          width: 4,
+          height: 24,
+          decoration: BoxDecoration(
+            color: Color(0xFF4A90E2),
+            borderRadius: BorderRadius.circular(2),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Text(
+          'Choose Your Package',
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: Colors.black87,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPackagesList() {
+    return GetX<PackageViewController>(
+      builder: (controller) {
+        return Column(
+          children: packages.asMap().entries.map((entry) {
+            int index = entry.key;
+            Map<String, dynamic> package = entry.value;
+            return _buildPackageCard(package, index, controller);
+          }).toList(),
+        );
+      },
+    );
+  }
+
+  Widget _buildPackageCard(Map<String, dynamic> package, int index, PackageViewController controller) {
+    final bool isSelected = controller.selectedPackageIndex.value == index;
+    final bool isPopular = package['popular'] ?? false;
+    
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isSelected ? package['color'] : Colors.grey[300]!,
+          width: isSelected ? 2 : 1,
+        ),
+        boxShadow: isSelected ? [
+          BoxShadow(
+            color: package['color'].withOpacity(0.2),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ] : [],
+      ),
+      child: InkWell(
+        onTap: () => controller.selectPackage(index),
+        borderRadius: BorderRadius.circular(16),
         child: Stack(
           children: [
-            Padding(
+            Container(
               padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: isSelected 
+                    ? package['color'].withOpacity(0.1) 
+                    : Colors.white,
+                borderRadius: BorderRadius.circular(16),
+              ),
               child: Row(
                 children: [
-                  // Package Icon
                   Container(
                     width: 60,
                     height: 60,
                     decoration: BoxDecoration(
-                      color: package['color'].withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(15),
+                      color: package['color'].withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(12),
                     ),
                     child: Icon(
-                      Icons.access_time,
+                      package['icon'],
                       color: package['color'],
-                      size: 30,
+                      size: 28,
                     ),
                   ),
-                  const SizedBox(width: 15),
-                  
-                  // Package Details
+                  const SizedBox(width: 16),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -456,10 +437,10 @@ class _PackageViewState extends State<PackageView> {
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
-                            color: isSelected ? package['color'] : Colors.grey[800],
+                            color: Colors.black87,
                           ),
                         ),
-                        const SizedBox(height: 5),
+                        const SizedBox(height: 4),
                         Text(
                           package['subtitle'],
                           style: TextStyle(
@@ -468,26 +449,74 @@ class _PackageViewState extends State<PackageView> {
                           ),
                         ),
                         const SizedBox(height: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: package['color'].withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Text(
-                            '${package['discount']} OFF',
+                        Row(
+                          children: [
+                            Text(
+                              '৳${package['price']}',
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                color: package['color'],
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: package['color'].withOpacity(0.2),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                '${package['discount']}% OFF',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: package['color'],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        if (package['features'] != null) ...[
+                          const SizedBox(height: 12),
+                          Text(
+                            'Features:',
                             style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
                               color: package['color'],
                             ),
                           ),
-                        ),
+                          const SizedBox(height: 4),
+                          ...package['features'].map<Widget>((feature) => 
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 2),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.check_circle_rounded,
+                                    color: package['color'],
+                                    size: 16,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    feature,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey[700],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ).toList(),
+                        ],
                       ],
                     ),
                   ),
-                  
-                  // Selection Indicator
                   Container(
                     width: 24,
                     height: 24,
@@ -499,9 +528,9 @@ class _PackageViewState extends State<PackageView> {
                       ),
                       color: isSelected ? package['color'] : Colors.transparent,
                     ),
-                    child: isSelected
-                        ? const Icon(
-                            Icons.check,
+                    child: isSelected 
+                        ? Icon(
+                            Icons.check_rounded,
                             color: Colors.white,
                             size: 16,
                           )
@@ -510,28 +539,40 @@ class _PackageViewState extends State<PackageView> {
                 ],
               ),
             ),
-            
-            // Popular Badge
             if (isPopular)
               Positioned(
                 top: 0,
                 right: 0,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     color: package['color'],
-                    borderRadius: const BorderRadius.only(
-                      topRight: Radius.circular(15),
-                      bottomLeft: Radius.circular(15),
+                    borderRadius: BorderRadius.only(
+                      topRight: Radius.circular(16),
+                      bottomLeft: Radius.circular(16),
                     ),
                   ),
-                  child: const Text(
-                    'POPULAR',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                    ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.star_rounded,
+                        color: Colors.white,
+                        size: 16,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        'POPULAR',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -541,27 +582,310 @@ class _PackageViewState extends State<PackageView> {
     );
   }
 
-  Future<void> _handlePurchase(dynamic data, BuildContext context) async {
-    if (isChecked) {
-      FocusScope.of(context).unfocus();
-      if (_packageController.loadingOnPurchase.value) {
-        return;
-      }
-
-      String referalCode = _editingControllerReferalCode.text.trim();
-
-      // Check if the referral code is the user's own referral code
-      if (referalCode == _authController.profile.value.referral_code) {
-        Get.snackbar(
-          'Failed',
-          "Can't allow using your own Referral Code during package purchase.",
-          backgroundColor: Colors.red,
-          colorText: Colors.white,
-          snackPosition: SnackPosition.BOTTOM,
+  Widget _buildSelectedPackagePrice() {
+    return GetX<PackageViewController>(
+      builder: (controller) {
+        final selectedPackage = packages[controller.selectedPackageIndex.value];
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.green[50],
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.green[200]!, width: 2),
+          ),
+          child: Column(
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.local_offer_rounded,
+                    color: Colors.green[600],
+                    size: 24,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Total Price',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.green[700],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                '${selectedPackage['price']} ৳',
+                style: TextStyle(
+                  fontSize: 32,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.green[700],
+                ),
+              ),
+              Text(
+                'for ${selectedPackage['duration']} months',
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Colors.green[600],
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
         );
-        return;
-      }
+      },
+    );
+  }
 
+  Widget _buildPromoCodeSection() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.local_offer_outlined,
+                color: Color(0xFF4A90E2),
+                size: 24,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Have a Promo Code?',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: TextFormField(
+                  controller: _editingControllerReferalCode,
+                  decoration: InputDecoration(
+                    hintText: 'Enter your promo...',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: Colors.grey[300]!),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: Colors.grey[300]!),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: Color(0xFF4A90E2), width: 2),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Container(
+                height: 50,
+                child: ElevatedButton(
+                  onPressed: () {
+                    final code = _editingControllerReferalCode.text.trim();
+                    if (code.isNotEmpty) {
+                      bannerController.checkPromo(code: code);
+                    } else {
+                      Get.snackbar(
+                        'Error',
+                        'Please enter a promo code',
+                        backgroundColor: Colors.red,
+                        colorText: Colors.white,
+                      );
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Color(0xFF4A90E2),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                  ),
+                  child: const Text(
+                    'Apply',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTermsAndConditions() {
+    return GetX<PackageViewController>(
+      builder: (controller) {
+        return Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Color(0xFF4A90E2).withOpacity(0.1),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Color(0xFF4A90E2).withOpacity(0.3)),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 20,
+                height: 20,
+                decoration: BoxDecoration(
+                  border: Border.all(
+                    color: controller.isTermsAccepted.value ? Color(0xFF4A90E2) : Colors.grey[400]!,
+                    width: 2,
+                  ),
+                  borderRadius: BorderRadius.circular(4),
+                  color: controller.isTermsAccepted.value ? Color(0xFF4A90E2) : Colors.transparent,
+                ),
+                child: InkWell(
+                  onTap: () => controller.toggleTermsAcceptance(),
+                  child: controller.isTermsAccepted.value
+                      ? Icon(
+                          Icons.check_rounded,
+                          color: Colors.white,
+                          size: 14,
+                        )
+                      : null,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: GestureDetector(
+                  onTap: () {
+                    // Navigate to Terms & Conditions
+                  },
+                  child: RichText(
+                    text: TextSpan(
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF4A90E2),
+                      ),
+                      children: [
+                        TextSpan(text: 'I agree to the '),
+                        TextSpan(
+                          text: 'Terms & Conditions, Privacy Policy, Refund Policy, and About App.',
+                          style: TextStyle(
+                            decoration: TextDecoration.underline,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildPurchaseButton() {
+    return Container(
+      width: double.infinity,
+      height: 56,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+          colors: [
+            Color(0xFF4A90E2),
+            Color(0xFF7B68EE),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: [
+          BoxShadow(
+            color: Color(0xFF4A90E2).withOpacity(0.4),
+            blurRadius: 15,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: ElevatedButton(
+        onPressed: _handlePurchase,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.transparent,
+          shadowColor: Colors.transparent,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(28),
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.shopping_cart_rounded, size: 24, color: Colors.white),
+            const SizedBox(width: 8),
+            Text(
+              'Purchase Now',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _handlePurchase() async {
+    if (!_controller.isTermsAccepted.value) {
+      Get.snackbar(
+        'Error',
+        'Please agree to Terms & Conditions before proceeding',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+        snackPosition: SnackPosition.BOTTOM,
+      );
+      return;
+    }
+
+    if (_packageController.loadingOnPurchase.value) return;
+
+    FocusScope.of(context).unfocus();
+
+    final selectedPackage = packages[_controller.selectedPackageIndex.value];
+    String referalCode = _editingControllerReferalCode.text.trim();
+
+    // Check if the referral code is the user's own referral code
+    if (referalCode.isNotEmpty && referalCode == _authController.profile.value.referral_code) {
+      Get.snackbar(
+        'Error',
+        "Cannot use your own referral code during package purchase",
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+        snackPosition: SnackPosition.BOTTOM,
+      );
+      return;
+    }
+
+    try {
       // Call SSLCommerz Payment
       Sslcommerz sslcommerz = Sslcommerz(
         initializer: SSLCommerzInitialization(
@@ -571,43 +895,26 @@ class _PackageViewState extends State<PackageView> {
           sdkType: SSLCSdkType.TESTBOX, // Change to LIVE for production
           store_id: "prepm6770cd934cda9",
           store_passwd: "prepm6770cd934cda9@ssl",
-          total_amount: bannerController.finalPrice.value.toDouble(),
-          tran_id: "custom_transaction_id", // Ensure this ID is unique for each transaction
+          total_amount: selectedPackage['price'].toDouble(),
+          tran_id: "custom_transaction_id_${DateTime.now().millisecondsSinceEpoch}",
         ),
       );
 
-      try {
-        var transactionResult = await sslcommerz.payNow();
+      var transactionResult = await sslcommerz.payNow();
 
-        // Check the transaction status
+      if (transactionResult is SSLCTransactionInfoModel) {
         if (transactionResult.status == "VALID") {
-          // Purchase the package after successful payment
-          Get.to(PackageView());
-          // bool result = await _packageController.tryToPurchasePackage(
-          //   packageId: data['id'],
-          //   referralCode: referalCode,
-          // );
-
-          // if (result) {
-          //   Get.snackbar(
-          //     'Success',
-          //     'Package purchased successfully!',
-          //     backgroundColor: Colors.green,
-          //     colorText: Colors.white,
-          //     snackPosition: SnackPosition.BOTTOM,
-          //   );
-          //   Get.to(PackageView());
-          // } else {
-          //   Get.snackbar(
-          //     'Failed',
-          //     'Package purchase failed. Please try again.',
-          //     backgroundColor: Colors.red,
-          //     colorText: Colors.white,
-          //     snackPosition: SnackPosition.BOTTOM,
-          //   );
-          // }
+          Get.snackbar(
+            'Success',
+            'Payment successful! Package purchased.',
+            backgroundColor: Colors.green,
+            colorText: Colors.white,
+            snackPosition: SnackPosition.BOTTOM,
+          );
+          
+          // Navigate back or refresh
+          Get.back();
         } else {
-          // Payment failed
           Get.snackbar(
             'Payment Failed',
             'Transaction was unsuccessful. Status: ${transactionResult.status}',
@@ -616,23 +923,23 @@ class _PackageViewState extends State<PackageView> {
             snackPosition: SnackPosition.BOTTOM,
           );
         }
-      } catch (e) {
-        // Log the error and show a user-friendly message
-        print('Payment Error: $e');
+      } else {
         Get.snackbar(
-          'Error',
-          'Payment error: ${e.toString()}',
+          'Payment Error',
+          'Unexpected response received. Please try again.',
           backgroundColor: Colors.red,
           colorText: Colors.white,
           snackPosition: SnackPosition.BOTTOM,
         );
       }
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Please accept the terms and conditions!"),
-          backgroundColor: Colors.red,
-        ),
+    } catch (e) {
+      print('Payment Error: $e');
+      Get.snackbar(
+        'Error',
+        'Payment processing failed. Please try again.',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+        snackPosition: SnackPosition.BOTTOM,
       );
     }
   }

@@ -23,7 +23,6 @@ class AuthController extends GetxController {
   void onInit() {
     super.onInit();
     initialize();
-
   }
 
   void initialize() async {
@@ -38,35 +37,43 @@ class AuthController extends GetxController {
     });
   }
 
+  @override
+  void onReady() {
+    super.onReady();
+    // ever(token, _setInitialScreen);
+  }
 
+  @override
+  void onClose() {
+    super.onClose();
+  }
 
   var isContentLoading = false.obs;
-
   final isbookloading = false.obs;
   final bookMarksList = {}.obs;
   var contentList = <dynamic>[].obs;
+  
   Future<void> menuDataList() async {
-    isContentLoading.value = true; // Indicate that data loading has started
+    isContentLoading.value = true;
     print('Fetching app content...');
-    final AuthController authController = Get.find(); // Fetch the auth controller
-    var dio = Dio(); // Using Dio for HTTP requests
+    final AuthController authController = Get.find();
+    var dio = Dio();
 
     try {
-      // Make a GET request to the specified URL
       final response = await dio.get(
-        'https://examhero.xyz/api/v1/mcq-preparation/app-content/',
+        'https://admin.examhero.xyz/api/v1/mcq-preparation/app-content/',
         options: Options(headers: {
           'accept': '*/*',
           'Authorization': 'Token ${authController.token.value}',
         }),
       );
 
-      isContentLoading.value = false; // Indicate that data loading is done
+      isContentLoading.value = false;
       print("Response Status Code: ${response.statusCode}");
 
       if (response.statusCode == 200) {
         contentList.value = response.data;
-        print("Content List Updated: $contentList");
+        print("Content List Updated: ${contentList}");
       } else {
         print("Failed to fetch data with status code: ${response.statusCode}");
       }
@@ -83,183 +90,92 @@ class AuthController extends GetxController {
     }
   }
 
+  void tryToSignIn({required String mobile, required String password}) async {
+    authLoading.value = true;
+    var data = {
+      'phone': mobile,
+      'password': password,
+    };
+    var dio = Dio();
+    try {
+      final response = await dio.post(
+        kLoginUrl,
+        data: data,
+      );
+      int? statusCode = response.statusCode;
+      print("Login Response Status Code: ${statusCode}");
 
+      authLoading.value = false;
+      if (statusCode == 200) {
+        token.value = response.data['token'];
+        profile.value = Profile.fromJson(response.data['profile']);
+        print("Profile loaded: ${profile.value.referral_code}");
+        preferences.setString('token', response.data['token']);
+        preferences.setString('profile', jsonEncode(response.data['profile']));
 
-void tryToSignIn({required String mobile, required String password}) async {
-  print("🚀 LOGIN START");
-  print("📱 Mobile: $mobile");
-  print("🔒 Password: ${password.isNotEmpty ? '[PROVIDED]' : '[EMPTY]'}");
-  print("🌐 API URL: $kLoginUrl");
-
-  authLoading.value = true;
-  
-  var data = {
-    'phone': mobile,
-    'password': password,
-  };
-  
-  print("📦 Request data: $data");
-  
-  var dio = Dio();
-  
-  // Add interceptor for more detailed logging
-  dio.interceptors.add(LogInterceptor(
-    requestBody: true,
-    responseBody: true,
-    requestHeader: true,
-    responseHeader: true,
-    error: true,
-  ));
-  
-  try {
-    print("🔄 Sending POST request...");
-    
-    final response = await dio.post(
-      kLoginUrl,
-      data: data,
-      options: Options(
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-      ),
-    );
-    
-    authLoading.value = false;
-    
-    print("✅ Response received!");
-    print("📊 Status Code: ${response.statusCode}");
-    print("📄 Response Data: ${response.data}");
-    print("📋 Response Headers: ${response.headers}");
-    
-    if (response.statusCode == 200) {
-      // Check response structure
-      if (response.data == null) {
-        print("❌ Response data is null");
-        _showError("Server returned empty response");
-        return;
-      }
-      
-      if (response.data is! Map) {
-        print("❌ Response data is not a Map: ${response.data.runtimeType}");
-        _showError("Invalid response format from server");
-        return;
-      }
-      
-      Map<String, dynamic> responseMap = response.data as Map<String, dynamic>;
-      print("🔍 Response Map: $responseMap");
-      
-      if (!responseMap.containsKey('token')) {
-        print("❌ No 'token' key in response");
-        print("🔑 Available keys: ${responseMap.keys.toList()}");
-        _showError("Invalid response: missing token");
-        return;
-      }
-      
-      if (!responseMap.containsKey('profile')) {
-        print("❌ No 'profile' key in response");
-        print("🔑 Available keys: ${responseMap.keys.toList()}");
-        _showError("Invalid response: missing profile");
-        return;
-      }
-      
-      try {
-        token.value = responseMap['token'];
-        profile.value = Profile.fromJson(responseMap['profile']);
-        
-        print("✅ Token saved: ${token.value}");
-        print("✅ Profile saved: ${profile.value.toString()}");
-        
-        await preferences.setString('token', responseMap['token']);
-        await preferences.setString('profile', jsonEncode(responseMap['profile']));
-        
-        print("💾 Data saved to preferences");
-        
         Get.snackbar(
           'Success',
-          "Login successful!",
+          "You are logged in successfully.",
           backgroundColor: Colors.green,
           colorText: Colors.white,
           snackPosition: SnackPosition.BOTTOM,
         );
-        
-        print("🏠 Navigating to home screen...");
+
         Get.offAllNamed(HomeScreen.id);
-        
-      } catch (e) {
-        print("❌ Error processing response data: $e");
-        _showError("Error processing login data: $e");
+      } else {
+        Get.snackbar(
+          'Failed',
+          "Invalid credentials. Please try again.",
+          backgroundColor: Colors.red,
+          colorText: Colors.white,
+          snackPosition: SnackPosition.BOTTOM,
+        );
       }
+    } catch (e) {
+      authLoading.value = false;
+      print("Login Error: ${e}");
       
-    } else {
-      print("❌ Non-200 status code: ${response.statusCode}");
-      _showError("Login failed. Status: ${response.statusCode}");
-    }
-    
-  } catch (e) {
-    authLoading.value = false;
-    print("💥 EXCEPTION CAUGHT: $e");
-    
-    if (e is DioException) {
-      print("🔍 DioException Details:");
-      print("   Type: ${e.type}");
-      print("   Message: ${e.message}");
-      print("   Request URI: ${e.requestOptions.uri}");
-      print("   Request Method: ${e.requestOptions.method}");
-      print("   Request Data: ${e.requestOptions.data}");
-      print("   Request Headers: ${e.requestOptions.headers}");
-      
-      if (e.response != null) {
-        print("   Response Status: ${e.response!.statusCode}");
-        print("   Response Data: ${e.response!.data}");
-        print("   Response Headers: ${e.response!.headers}");
+      // Handle specific error cases
+      if (e is DioException) {
+        if (e.response?.statusCode == 400) {
+          Get.snackbar(
+            'Failed',
+            "Invalid mobile number or password.",
+            backgroundColor: Colors.red,
+            colorText: Colors.white,
+            snackPosition: SnackPosition.BOTTOM,
+          );
+        } else if (e.response?.statusCode == 401) {
+          Get.snackbar(
+            'Failed',
+            "Unauthorized access. Please check your credentials.",
+            backgroundColor: Colors.red,
+            colorText: Colors.white,
+            snackPosition: SnackPosition.BOTTOM,
+          );
+        } else {
+          Get.snackbar(
+            'Failed',
+            "Network error. Please check your internet connection.",
+            backgroundColor: Colors.red,
+            colorText: Colors.white,
+            snackPosition: SnackPosition.BOTTOM,
+          );
+        }
+      } else {
+        Get.snackbar(
+          'Failed',
+          "Something went wrong. Please try again.",
+          backgroundColor: Colors.red,
+          colorText: Colors.white,
+          snackPosition: SnackPosition.BOTTOM,
+        );
       }
-      
-      switch (e.type) {
-        case DioExceptionType.connectionTimeout:
-          _showError("Connection timeout. Check your internet connection.");
-          break;
-        case DioExceptionType.sendTimeout:
-          _showError("Request timeout. Please try again.");
-          break;
-        case DioExceptionType.receiveTimeout:
-          _showError("Server response timeout. Please try again.");
-          break;
-        case DioExceptionType.badResponse:
-          _showError("Server error: ${e.response?.statusCode}");
-          break;
-        case DioExceptionType.cancel:
-          _showError("Request cancelled.");
-          break;
-        case DioExceptionType.connectionError:
-          _showError("Connection error. Check your internet connection.");
-          break;
-        case DioExceptionType.unknown:
-          _showError("Network error: ${e.message}");
-          break;
-      }
-    } else {
-      print("   Non-Dio Exception: ${e.runtimeType}");
-      _showError("Unexpected error: $e");
     }
   }
-}
-
-void _showError(String message) {
-  print("🚨 Error: $message");
-  Get.snackbar(
-    'Error',
-    message,
-    backgroundColor: Colors.red,
-    colorText: Colors.white,
-    snackPosition: SnackPosition.BOTTOM,
-    duration: Duration(seconds: 4),
-  );
-}
-
-
 
   final topBannerList = [].obs;
+  
   Future<void> fetchTopBannerList() async {
     final AuthController authController = Get.find();
     var dio = Dio();
@@ -281,7 +197,7 @@ void _showError(String message) {
       print(e);
       Get.snackbar(
         'Failed',
-        "Something is wrong. Please try again1.",
+        "Failed to load banners. Please try again.",
         backgroundColor: Colors.red,
         colorText: Colors.white,
         snackPosition: SnackPosition.BOTTOM,
@@ -289,211 +205,192 @@ void _showError(String message) {
     }
   }
 
-
-
-
-
-void tryToSignUp({
-  required String fullName,
-  required String mobileNumber,
-  required String email,
-  required String institute,
-  required int hscExamYear,
-  required String password,
-  required String studentClass,
-  required String department,
-}) async {
-  print("🚀 REGISTRATION START");
-  print("👤 Full Name: $fullName");
-  print("📱 Mobile: $mobileNumber");
-  print("📧 Email: $email");
-  print("🏫 Institute: $institute");
-  print("📅 HSC Year: $hscExamYear");
-  print("🔒 Password: ${password.isNotEmpty ? '[PROVIDED]' : '[EMPTY]'}");
-  print("📚 Class: $studentClass");
-  print("🎯 Department: $department");
-  print("🌐 API URL: $kRegisterWithProfileUrl");
-
-  authLoading.value = true;
-  
-  var data = {
-    'full_name': fullName,
-    'email': email,
-    'mobile_number': mobileNumber,
-    'password': password,
-    'institute': institute,
-    'hsc_exam_year': hscExamYear.toString(),
-    'class': studentClass,
-    'department': department,
-  };
-  
-  print("📦 Request data: $data");
-  
-  var dio = Dio();
-  
-  // Add interceptor for debugging
-  dio.interceptors.add(LogInterceptor(
-    requestBody: true,
-    responseBody: true,
-    requestHeader: true,
-    responseHeader: true,
-    error: true,
-  ));
-
-  try {
-    print("🔄 Sending POST request...");
+  // Enhanced tryToSignUp method with improved error handling and debugging
+  void tryToSignUp({
+    required String fullName,
+    required String mobileNumber,
+    required String email,
+    required String institute,
+    required String studentClass,
+    required String department,
+    required String password,
+  }) async {
+    authLoading.value = true;
     
-    final response = await dio.post(
-      kRegisterWithProfileUrl,
-      data: data,
-      options: Options(
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-      ),
-    );
-
-    authLoading.value = false;
+    // Prepare data matching your Django API expectations
+    var data = {
+      'full_name': fullName,
+      'email': email,
+      'mobile_number': mobileNumber,
+      'institute': institute,
+      'password': password,
+      'class': studentClass,        // Send as 'class' to match your API
+      'department': department,
+    };
     
-    print("✅ Response received!");
-    print("📊 Status Code: ${response.statusCode}");
-    print("📄 Response Data: ${response.data}");
+    print("=== REGISTRATION API REQUEST ===");
+    print("URL: $kRegisterWithProfileUrl");
+    print("Data being sent: ${jsonEncode(data)}");
     
-    if (response.statusCode == 201) {
-      if (response.data != null && 
-          response.data['token'] != null && 
-          response.data['profile'] != null) {
-        
-        token.value = response.data['token'];
-        profile.value = Profile.fromJson(response.data['profile']);
-        
-        print("✅ Token saved: ${token.value}");
-        print("✅ Profile saved: ${profile.value.toString()}");
-        
-        await preferences.setString('token', response.data['token']);
-        await preferences.setString('profile', jsonEncode(response.data['profile']));
-        
-        print("💾 Data saved to preferences");
-
-        Get.snackbar(
-          'Success',
-          "Account created successfully!",
-          backgroundColor: Colors.green,
-          colorText: Colors.white,
-          snackPosition: SnackPosition.BOTTOM,
-          duration: Duration(seconds: 3),
-        );
-
-        print("🏠 Navigating to home screen...");
-        Get.offAllNamed(HomeScreen.id);
-        
-      } else {
-        print("❌ Invalid response structure: ${response.data}");
-        Get.snackbar(
-          'Failed',
-          "Invalid response from server.",
-          backgroundColor: Colors.red,
-          colorText: Colors.white,
-          snackPosition: SnackPosition.BOTTOM,
-        );
-      }
-    } else {
-      print("❌ Non-201 status code: ${response.statusCode}");
-      String errorMessage = "Registration failed.";
-      
-      if (response.data != null && response.data['error'] != null) {
-        errorMessage = response.data['error'];
-      }
-      
-      Get.snackbar(
-        'Failed',
-        errorMessage,
-        backgroundColor: Colors.red,
-        colorText: Colors.white,
-        snackPosition: SnackPosition.BOTTOM,
-        duration: Duration(seconds: 4),
+    var dio = Dio();
+    
+    // Add request/response interceptor for better debugging
+    dio.interceptors.add(InterceptorsWrapper(
+      onRequest: (options, handler) {
+        print("REQUEST[${options.method}] => PATH: ${options.path}");
+        print("REQUEST DATA: ${options.data}");
+        handler.next(options);
+      },
+      onResponse: (response, handler) {
+        print("RESPONSE[${response.statusCode}] => DATA: ${response.data}");
+        handler.next(response);
+      },
+      onError: (error, handler) {
+        print("ERROR[${error.response?.statusCode}] => MESSAGE: ${error.message}");
+        print("ERROR DATA: ${error.response?.data}");
+        handler.next(error);
+      },
+    ));
+    
+    try {
+      final response = await dio.post(
+        kRegisterWithProfileUrl,
+        data: data,
+        options: Options(
+          headers: {
+            'Content-Type': 'application/json',
+            'accept': 'application/json',  // More specific accept header
+          },
+          validateStatus: (status) {
+            // Allow all status codes to be handled manually
+            return status != null && status < 500;
+          },
+        ),
       );
-    }
-  } catch (e) {
-    authLoading.value = false;
-    print("💥 EXCEPTION CAUGHT: $e");
-    
-    if (e is DioException) {
-      print("🔍 DioException Details:");
-      print("   Type: ${e.type}");
-      print("   Message: ${e.message}");
-      print("   Request URI: ${e.requestOptions.uri}");
-      print("   Request Data: ${e.requestOptions.data}");
+
+      authLoading.value = false;
+      int? statusCode = response.statusCode;
       
-      if (e.response != null) {
-        print("   Response Status: ${e.response!.statusCode}");
-        print("   Response Data: ${e.response!.data}");
+      print("=== REGISTRATION RESPONSE ===");
+      print("Status Code: $statusCode");
+      print("Response Data: ${response.data}");
+      
+      if (statusCode == 201) {
+        // Successful registration
+        if (response.data['token'] != null && response.data['profile'] != null) {
+          token.value = response.data['token'];
+          profile.value = Profile.fromJson(response.data['profile']);
+          
+          // Save to preferences
+          await preferences.setString('token', response.data['token']);
+          await preferences.setString('profile', jsonEncode(response.data['profile']));
+
+          Get.snackbar(
+            'Success',
+            "Account created successfully! Welcome to ExamHero.",
+            backgroundColor: Colors.green,
+            colorText: Colors.white,
+            snackPosition: SnackPosition.BOTTOM,
+            duration: const Duration(seconds: 3),
+          );
+
+          Get.offAllNamed(HomeScreen.id);
+        } else {
+          throw Exception("Invalid response format: missing token or profile");
+        }
+      } else if (statusCode == 400) {
+        // Validation errors
+        String errorMessage = "Please check all required fields and try again.";
         
-        String errorMessage = "Registration failed.";
-        if (e.response!.data != null && e.response!.data['error'] != null) {
-          errorMessage = e.response!.data['error'];
+        if (response.data != null) {
+          if (response.data['error'] != null) {
+            errorMessage = response.data['error'].toString();
+          } else if (response.data.containsKey('phone')) {
+            errorMessage = "This mobile number is already registered.";
+          } else if (response.data.containsKey('email')) {
+            errorMessage = "This email address is already registered.";
+          }
         }
         
         Get.snackbar(
-          'Failed',
+          'Registration Failed',
           errorMessage,
           backgroundColor: Colors.red,
           colorText: Colors.white,
           snackPosition: SnackPosition.BOTTOM,
-          duration: Duration(seconds: 4),
+          duration: const Duration(seconds: 4),
         );
       } else {
-        _showNetworkError(e.type);
+        // Other error status codes
+        String errorMessage = "Registration failed. Please try again.";
+        
+        if (response.data != null && response.data['error'] != null) {
+          errorMessage = response.data['error'].toString();
+        }
+        
+        Get.snackbar(
+          'Registration Failed',
+          errorMessage,
+          backgroundColor: Colors.red,
+          colorText: Colors.white,
+          snackPosition: SnackPosition.BOTTOM,
+          duration: const Duration(seconds: 4),
+        );
       }
-    } else {
-      print("   Non-Dio Exception: ${e.runtimeType}");
+    } catch (e) {
+      print("=== REGISTRATION ERROR ===");
+      print("Error Type: ${e.runtimeType}");
+      print("Error Details: $e");
+      
+      authLoading.value = false;
+      String errorMessage = "Something went wrong. Please try again.";
+      
+      if (e is DioException) {
+        print("DioException Details:");
+        print("- Status Code: ${e.response?.statusCode}");
+        print("- Response Data: ${e.response?.data}");
+        print("- Message: ${e.message}");
+        
+        switch (e.response?.statusCode) {
+          case 400:
+            if (e.response?.data != null) {
+              if (e.response!.data['error'] != null) {
+                errorMessage = e.response!.data['error'].toString();
+              } else if (e.response!.data.toString().contains('phone')) {
+                errorMessage = "This mobile number is already registered.";
+              } else if (e.response!.data.toString().contains('email')) {
+                errorMessage = "This email address is already registered.";
+              } else {
+                errorMessage = "Please check all required fields and try again.";
+              }
+            }
+            break;
+          case 409:
+            errorMessage = "Account with this information already exists.";
+            break;
+          case 500:
+            errorMessage = "Server error. Please try again later.";
+            break;
+          case null:
+            errorMessage = "Network error. Please check your internet connection.";
+            break;
+          default:
+            errorMessage = "Registration failed. Please try again.";
+        }
+      } else if (e.toString().contains('SocketException')) {
+        errorMessage = "No internet connection. Please check your network.";
+      }
+      
       Get.snackbar(
-        'Failed',
-        "Something went wrong. Please try again.",
+        'Registration Failed',
+        errorMessage,
         backgroundColor: Colors.red,
         colorText: Colors.white,
         snackPosition: SnackPosition.BOTTOM,
+        duration: const Duration(seconds: 4),
       );
     }
   }
-}
-
-void _showNetworkError(DioExceptionType type) {
-  String message;
-  switch (type) {
-    case DioExceptionType.connectionTimeout:
-      message = "Connection timeout. Check your internet connection.";
-      break;
-    case DioExceptionType.sendTimeout:
-      message = "Request timeout. Please try again.";
-      break;
-    case DioExceptionType.receiveTimeout:
-      message = "Server response timeout. Please try again.";
-      break;
-    case DioExceptionType.connectionError:
-      message = "Connection error. Check your internet connection.";
-      break;
-    default:
-      message = "Network error. Please try again.";
-  }
-  
-  Get.snackbar(
-    'Network Error',
-    message,
-    backgroundColor: Colors.red,
-    colorText: Colors.white,
-    snackPosition: SnackPosition.BOTTOM,
-    duration: Duration(seconds: 4),
-  );
-}
-
-
-
-
-
-
-
 
   void tryToSignOut() async {
     authLoading.value = true;
@@ -516,11 +413,18 @@ void _showNetworkError(DioExceptionType type) {
         preferences.clear();
         Get.offAllNamed(WelcomeScreen.id);
         token.value = '';
-        // profile.value = Profile();
+        
+        Get.snackbar(
+          'Success',
+          "You have been logged out successfully.",
+          backgroundColor: Colors.green,
+          colorText: Colors.white,
+          snackPosition: SnackPosition.BOTTOM,
+        );
       } else {
         Get.snackbar(
           'Failed',
-          "Something is wrong. Please check your internet connection.",
+          "Logout failed. Please check your internet connection.",
           backgroundColor: Colors.red,
           colorText: Colors.white,
           snackPosition: SnackPosition.BOTTOM,
@@ -529,26 +433,20 @@ void _showNetworkError(DioExceptionType type) {
     } catch (e) {
       authLoading.value = false;
       Get.snackbar(
-        'Failed',
-        "Something is wrong. Please check your internet connection.",
-        backgroundColor: Colors.red,
+        'Logged Out',
+        "You have been logged out.",
+        backgroundColor: Colors.orange,
         colorText: Colors.white,
         snackPosition: SnackPosition.BOTTOM,
       );
       preferences.clear();
       Get.offAllNamed(WelcomeScreen.id);
       token.value = '';
-      // profile.value = Profile();
     }
   }
 
   void sendOtpRequest(String mobileNumber) {
-    // authLoading.value = true;
-    // //TODO: Api will call here
-    // Timer(const Duration(seconds: 5), () {
-    //   isOtpRequested.value = true;
-    //   authLoading.value = false;
-    // });
+    // Implementation for OTP request if needed
   }
 
   Future<bool> tryToChangePassword({
@@ -576,7 +474,7 @@ void _showNetworkError(DioExceptionType type) {
       if (statusCode == 200) {
         Get.snackbar(
           'Success',
-          "Your password has been changed.",
+          "Your password has been changed successfully.",
           backgroundColor: Colors.green,
           colorText: Colors.white,
           snackPosition: SnackPosition.BOTTOM,
@@ -585,7 +483,7 @@ void _showNetworkError(DioExceptionType type) {
       } else if (statusCode == 203) {
         Get.snackbar(
           'Failed',
-          "Your credential is mismatch.",
+          "Current password is incorrect.",
           backgroundColor: Colors.red,
           colorText: Colors.white,
           snackPosition: SnackPosition.BOTTOM,
@@ -593,7 +491,7 @@ void _showNetworkError(DioExceptionType type) {
       } else {
         Get.snackbar(
           'Failed',
-          "Something is wrong. Please try again.",
+          "Password change failed. Please try again.",
           backgroundColor: Colors.red,
           colorText: Colors.white,
           snackPosition: SnackPosition.BOTTOM,
@@ -603,7 +501,7 @@ void _showNetworkError(DioExceptionType type) {
       loadingChangePassword.value = false;
       Get.snackbar(
         'Failed',
-        "Something is wrong. Please try again.",
+        "Network error. Please check your connection.",
         backgroundColor: Colors.red,
         colorText: Colors.white,
         snackPosition: SnackPosition.BOTTOM,
@@ -635,7 +533,7 @@ void _showNetworkError(DioExceptionType type) {
       if (statusCode == 201) {
         Get.snackbar(
           'Success',
-          "Password reset OTP has been sent to your email. Please check there.",
+          "Password reset OTP has been sent to your email. Please check your inbox.",
           backgroundColor: Colors.green,
           colorText: Colors.white,
           snackPosition: SnackPosition.TOP,
@@ -645,7 +543,7 @@ void _showNetworkError(DioExceptionType type) {
       } else {
         Get.snackbar(
           'Failed',
-          "Your credential is mismatch.",
+          "Mobile number or email not found in our records.",
           backgroundColor: Colors.red,
           colorText: Colors.white,
           snackPosition: SnackPosition.BOTTOM,
@@ -655,7 +553,7 @@ void _showNetworkError(DioExceptionType type) {
       loadingResetPassword.value = false;
       Get.snackbar(
         'Failed',
-        "Something is wrong. Please try again.",
+        "Failed to send OTP. Please try again.",
         backgroundColor: Colors.red,
         colorText: Colors.white,
         snackPosition: SnackPosition.BOTTOM,
@@ -689,18 +587,18 @@ void _showNetworkError(DioExceptionType type) {
       if (statusCode == 200) {
         Get.snackbar(
           'Success',
-          "Password reset is done. You can login now.",
+          "Password reset successful! You can now login with your new password.",
           backgroundColor: Colors.green,
           colorText: Colors.white,
           snackPosition: SnackPosition.BOTTOM,
           duration: const Duration(seconds: 6),
         );
         Get.offAllNamed(WelcomeScreen.id);
-        // return true;
+        return true;
       } else {
         Get.snackbar(
           'Failed',
-          "Your credential is mismatch.",
+          "Invalid OTP or expired. Please try again.",
           backgroundColor: Colors.red,
           colorText: Colors.white,
           snackPosition: SnackPosition.BOTTOM,
@@ -710,7 +608,7 @@ void _showNetworkError(DioExceptionType type) {
       loadingResetPassword.value = false;
       Get.snackbar(
         'Failed',
-        "Something is wrong. Please try again.",
+        "Password reset failed. Please try again.",
         backgroundColor: Colors.red,
         colorText: Colors.white,
         snackPosition: SnackPosition.BOTTOM,

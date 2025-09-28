@@ -24,6 +24,7 @@ import 'new_update/live_exam.dart';
 import 'new_update/model_test/modeltestlist.dart';
 import 'mcq_preparation/board_cqs.dart';
 import 'mcq_preparation/board_mcqs.dart';
+import 'mcq_preparation/teacher_screen.dart';
 
 import 'package:mission_dmc/screens/chat/chat_list_view.dart';
 
@@ -59,25 +60,12 @@ class _HomeScreenState extends State<HomeScreen> {
       case 0: // Home
         // Already on home screen, no navigation needed
         break;
-      case 1: // Package
-        if (int.tryParse(_authController.profile.value.package.toString()) != null) {
-          Get.defaultDialog(
-            title: 'Notice',
-            middleText: 'You have already purchased this package.',
-            textConfirm: 'OK',
-            onConfirm: () {
-              Get.back();
-            },
-            confirmTextColor: Colors.white,
-          );
-        } else {
-          Get.to(PackageView());
-        }
+      case 1: // Routine
+        Get.to(ExamRoutine());
         break;
       case 2: // Teacher Panel
         // Navigate to teacher panel (replace with your teacher panel screen)
-        // Get.to(() => TeacherPanelScreen());
-        Get.snackbar('Coming Soon', 'Teacher Panel will be available soon!');
+        Get.to(() => TeacherPanelScreen());
         break;
       case 3: // Live Chat
         Get.to(ChatListView());
@@ -842,7 +830,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     ) : null,
                     child: Icon(Icons.workspace_premium_rounded, size: screenWidth * (isSmallDevice ? 0.055 : 0.06)),
                   ),
-                  label: 'Package',
+                  label: 'Routine',
                 ),
                 BottomNavigationBarItem(
                   icon: Container(

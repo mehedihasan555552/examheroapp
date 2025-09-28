@@ -4,256 +4,441 @@ import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:get/get.dart';
 import 'package:loading_overlay/loading_overlay.dart';
 import 'package:mission_dmc/controllers/auth_controller.dart';
-import 'package:mission_dmc/screens/home_screen.dart';
-
 import '../../config/constants.dart';
+import '../../widgets/rounded_button.dart';
+import '../../widgets/textFieldContainer.dart';
 
-class RegistrationScreen extends StatelessWidget {
-  RegistrationScreen({super.key});
+class RegistrationScreen extends StatefulWidget {
+  RegistrationScreen({Key? key}) : super(key: key);
   static const id = 'reg_screen';
-  final AuthController _authController = Get.find();
 
+  @override
+  State<RegistrationScreen> createState() => _RegistrationScreenState();
+}
+
+class _RegistrationScreenState extends State<RegistrationScreen> with TickerProviderStateMixin {
+  final AuthController _authController = Get.find();
+  final _formKey = GlobalKey<FormState>();
+
+  // Text Controllers
   final TextEditingController _editingControllerMobileNumber = TextEditingController();
   final TextEditingController _editingControllerFullName = TextEditingController();
   final TextEditingController _editingControllerInstitute = TextEditingController();
-  final TextEditingController _editingControllerHSCExamYear = TextEditingController();
   final TextEditingController _editingControllerEmailAddress = TextEditingController();
   final TextEditingController _editingControllerPassword = TextEditingController();
-  
-  final RxBool _isPasswordObscured = true.obs;
-  final RxString _selectedClass = 'hsc'.obs;
-  final RxString _selectedDepartment = 'science'.obs;
 
-  // Dropdown options
-  final List<String> _classOptions = ['ssc', 'hsc'];
-  final List<String> _departmentOptions = ['science', 'arts', 'commerce'];
+  // Reactive variables
+  RxBool _isPasswordObscured = true.obs;
+  RxString selectedClass = ''.obs;
+  RxString selectedDepartment = ''.obs;
+
+  // Animation controllers
+  late AnimationController _fadeController;
+  late AnimationController _slideController;
+  late Animation<double> _fadeAnimation;
+  late Animation<Offset> _slideAnimation;
+
+  // Dropdown options matching your Django model
+  final List<Map<String, String>> classOptions = [
+    {'value': '', 'label': 'Select Class'},
+    {'value': 'ssc', 'label': 'এসএসসি (SSC)'},
+    {'value': 'hsc', 'label': 'এইচএসসি (HSC)'},
+  ];
+
+  final List<Map<String, String>> departmentOptions = [
+    {'value': '', 'label': 'Select Department'},
+    {'value': 'science', 'label': 'বিজ্ঞান (Science)'},
+    {'value': 'arts', 'label': 'মানবিক (Arts)'},
+    {'value': 'commerce', 'label': 'বাণিজ্য (Commerce)'},
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeAnimations();
+  }
+
+  void _initializeAnimations() {
+    _fadeController = AnimationController(
+      duration: const Duration(milliseconds: 1000),
+      vsync: this,
+    );
+    _slideController = AnimationController(
+      duration: const Duration(milliseconds: 800),
+      vsync: this,
+    );
+
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _fadeController, curve: Curves.easeInOut),
+    );
+    
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(0, 0.3),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: _slideController, curve: Curves.elasticOut));
+
+    _fadeController.forward();
+    Future.delayed(const Duration(milliseconds: 300), () {
+      _slideController.forward();
+    });
+  }
+
+  @override
+  void dispose() {
+    _fadeController.dispose();
+    _slideController.dispose();
+    _editingControllerMobileNumber.dispose();
+    _editingControllerFullName.dispose();
+    _editingControllerInstitute.dispose();
+    _editingControllerEmailAddress.dispose();
+    _editingControllerPassword.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     Size size = MediaQuery.of(context).size;
+    
     return Obx(() {
       return LoadingOverlay(
         isLoading: _authController.authLoading.value,
-        progressIndicator: SpinKitCubeGrid(
-          color: Theme.of(context).primaryColor,
+        progressIndicator: SpinKitPulse(
+          color: kPrimaryColor,
           size: 50.0,
         ),
         child: Scaffold(
-          backgroundColor: Colors.grey[50],
-          body: SingleChildScrollView(
-            child: SizedBox(
-              width: double.infinity,
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  // Background decorations
-                  Positioned(
-                    top: 0,
-                    left: 0,
-                    child: Image.asset(
-                      "assets/shape/main_top.png",
-                      width: size.width * 0.3,
-                      color: kPrimaryColorLight,
-                      errorBuilder: (context, error, stackTrace) {
-                        return SizedBox(width: size.width * 0.3, height: 100);
-                      },
-                    ),
-                  ),
-                  Positioned(
-                    left: 0,
-                    bottom: 0,
-                    child: Image.asset(
-                      "assets/shape/main_bottom.png",
-                      width: size.width * 0.3,
-                      color: kPrimaryColorLight,
-                      errorBuilder: (context, error, stackTrace) {
-                        return SizedBox(width: size.width * 0.3, height: 100);
-                      },
-                    ),
-                  ),
-                  
-                  // Main content
-                  Padding(
-                    padding: EdgeInsets.all(20),
+          resizeToAvoidBottomInset: true,
+          body: Container(
+            height: size.height,
+            width: double.infinity,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  kPrimaryColor.withOpacity(0.8),
+                  kPrimaryColor,
+                  kPrimaryColor.withOpacity(0.9),
+                ],
+                stops: const [0.0, 0.5, 1.0],
+              ),
+            ),
+            child: SafeArea(
+              child: SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                  child: Form(
+                    key: _formKey,
                     child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        SizedBox(height: size.height * 0.08),
+                        const SizedBox(height: 20),
                         
-                        // Header
-                        Text(
-                          'Create Account',
-                          style: TextStyle(
-                            fontSize: 32,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.grey[800],
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                        SizedBox(height: 8),
-                        Text(
-                          'Join us today and start your journey',
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: Colors.grey[600],
-                          ),
-                        ),
-                        SizedBox(height: 10),
-                        
-                        // Logo
-                        Container(
-                          padding: EdgeInsets.all(20),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(20),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.grey.withOpacity(0.1),
-                                spreadRadius: 2,
-                                blurRadius: 10,
-                                offset: Offset(0, 5),
+                        // Header Section
+                        FadeTransition(
+                          opacity: _fadeAnimation,
+                          child: Column(
+                            children: [
+                              Container(
+                                width: 100,
+                                height: 100,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: Colors.white.withOpacity(0.2),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.1),
+                                      blurRadius: 20,
+                                      offset: const Offset(0, 10),
+                                    ),
+                                  ],
+                                ),
+                                child: ClipOval(
+                                  child: Image.asset(
+                                    "assets/main_logo.png",
+                                    fit: BoxFit.cover,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 20),
+                              const Text(
+                                'Create Account',
+                                style: TextStyle(
+                                  fontSize: 28,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                  letterSpacing: 1.0,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Join ExamHero Today!',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: Colors.white.withOpacity(0.9),
+                                  fontWeight: FontWeight.w300,
+                                ),
                               ),
                             ],
                           ),
-                          child: Image.asset(
-                            "assets/main_logo.png",
-                            width: size.width * 0.3,
-                            height: size.width * 0.2,
-                            color: kPrimaryColor,
-                            errorBuilder: (context, error, stackTrace) {
-                              return Container(
-                                width: size.width * 0.3,
-                                height: size.width * 0.2,
-                                color: Colors.grey[300],
-                                child: Icon(Icons.image_not_supported, size: 40),
-                              );
-                            },
-                          ),
                         ),
-                        SizedBox(height: 30),
                         
-                        // Form fields
-                        _buildModernTextField(
-                          controller: _editingControllerFullName,
-                          hintText: "Enter Your Full Name",
-                          icon: Icons.person_outline,
-                          keyboardType: TextInputType.text,
-                        ),
-                        SizedBox(height: 16),
+                        const SizedBox(height: 30),
                         
-                        _buildModernTextField(
-                          controller: _editingControllerMobileNumber,
-                          hintText: "Enter 11-digit Phone Number",
-                          icon: Icons.phone_outlined,
-                          keyboardType: TextInputType.number,
-                          inputFormatters: [
-                            LengthLimitingTextInputFormatter(11),
-                            FilteringTextInputFormatter.digitsOnly,
-                          ],
-                        ),
-                        SizedBox(height: 16),
-                        
-                        _buildModernTextField(
-                          controller: _editingControllerEmailAddress,
-                          hintText: "Enter Your Email Address",
-                          icon: Icons.email_outlined,
-                          keyboardType: TextInputType.emailAddress,
-                        ),
-                        SizedBox(height: 16),
-                        
-                        _buildModernTextField(
-                          controller: _editingControllerInstitute,
-                          hintText: "Enter Your College/School Name",
-                          icon: Icons.school_outlined,
-                          keyboardType: TextInputType.text,
-                        ),
-                        SizedBox(height: 16),
-                        
-                        _buildModernTextField(
-                          controller: _editingControllerHSCExamYear,
-                          hintText: "HSC Exam Year (e.g., 2024)",
-                          icon: Icons.calendar_today_outlined,
-                          keyboardType: TextInputType.number,
-                          inputFormatters: [
-                            LengthLimitingTextInputFormatter(4),
-                            FilteringTextInputFormatter.digitsOnly,
-                          ],
-                        ),
-                        SizedBox(height: 16),
-                        
-                        // Class Dropdown
-                        _buildModernDropdown(
-                          value: _selectedClass,
-                          options: _classOptions,
-                          hintText: "Select Class",
-                          icon: Icons.class_outlined,
-                        ),
-                        SizedBox(height: 16),
-                        
-                        // Department Dropdown
-                        _buildModernDropdown(
-                          value: _selectedDepartment,
-                          options: _departmentOptions,
-                          hintText: "Select Department",
-                          icon: Icons.category_outlined,
-                        ),
-                        SizedBox(height: 16),
-                        
-                        // Password Field
-                        Obx(() => _buildModernTextField(
-                          controller: _editingControllerPassword,
-                          hintText: "Enter Your Password",
-                          icon: Icons.lock_outline,
-                          keyboardType: TextInputType.visiblePassword,
-                          obscureText: _isPasswordObscured.value,
-                          suffixIcon: GestureDetector(
-                            onTap: () {
-                              _isPasswordObscured.value = !_isPasswordObscured.value;
-                            },
-                            child: Icon(
-                              _isPasswordObscured.value
-                                  ? Icons.visibility_outlined
-                                  : Icons.visibility_off_outlined,
-                              color: Colors.grey[600],
-                              size: 22,
-                            ),
-                          ),
-                        )),
-                        SizedBox(height: 30),
-                        
-                        // Register Button
-                        _buildModernButton(context, size),
-                        SizedBox(height: 20),
-                        
-                        // Login Link
-                        GestureDetector(
-                          onTap: () {
-                            Get.back();
-                          },
-                          child: RichText(
-                            text: TextSpan(
-                              text: "Already have an account? ",
-                              style: TextStyle(
-                                color: Colors.grey[600], 
-                                fontSize: 16,
+                        // Form Container
+                        SlideTransition(
+                          position: _slideAnimation,
+                          child: Container(
+                            padding: const EdgeInsets.all(24),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: Colors.white.withOpacity(0.2),
+                                width: 1,
                               ),
-                              children: [
-                                TextSpan(
-                                  text: "Sign In",
-                                  style: TextStyle(
-                                    color: kPrimaryColor,
-                                    fontWeight: FontWeight.bold,
-                                    decoration: TextDecoration.underline,
-                                  ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.1),
+                                  blurRadius: 20,
+                                  offset: const Offset(0, 10),
                                 ),
+                              ],
+                            ),
+                            child: Column(
+                              children: [
+                                // Full Name Field
+                                _buildTextField(
+                                  controller: _editingControllerFullName,
+                                  hint: "Enter Your Full Name",
+                                  icon: Icons.person_rounded,
+                                  validator: (value) {
+                                    if (value == null || value.isEmpty) {
+                                      return 'Full name is required';
+                                    }
+                                    if (value.length < 2) {
+                                      return 'Name must be at least 2 characters';
+                                    }
+                                    return null;
+                                  },
+                                ),
+                                
+                                const SizedBox(height: 20),
+                                
+                                // Mobile Number Field
+                                _buildTextField(
+                                  controller: _editingControllerMobileNumber,
+                                  hint: "Enter Mobile Number",
+                                  icon: Icons.phone_android_rounded,
+                                  keyboardType: TextInputType.number,
+                                  inputFormatters: [
+                                    LengthLimitingTextInputFormatter(11),
+                                    FilteringTextInputFormatter.digitsOnly,
+                                  ],
+                                  validator: (value) {
+                                    if (value == null || value.isEmpty) {
+                                      return 'Mobile number is required';
+                                    }
+                                    if (value.length != 11) {
+                                      return 'Mobile number must be exactly 11 digits';
+                                    }
+                                    if (!value.startsWith('01')) {
+                                      return 'Mobile number must start with 01';
+                                    }
+                                    return null;
+                                  },
+                                ),
+                                
+                                const SizedBox(height: 20),
+                                
+                                // Email Field
+                                _buildTextField(
+                                  controller: _editingControllerEmailAddress,
+                                  hint: "Enter Email Address",
+                                  icon: Icons.email_rounded,
+                                  keyboardType: TextInputType.emailAddress,
+                                  validator: (value) {
+                                    if (value == null || value.isEmpty) {
+                                      return 'Email is required';
+                                    }
+                                    if (!GetUtils.isEmail(value)) {
+                                      return 'Enter valid email address';
+                                    }
+                                    return null;
+                                  },
+                                ),
+                                
+                                const SizedBox(height: 20),
+                                
+                                // Institute Field
+                                _buildTextField(
+                                  controller: _editingControllerInstitute,
+                                  hint: "Enter Institute/College Name",
+                                  icon: Icons.school_rounded,
+                                  validator: (value) {
+                                    if (value == null || value.isEmpty) {
+                                      return 'Institute name is required';
+                                    }
+                                    if (value.length < 3) {
+                                      return 'Institute name must be at least 3 characters';
+                                    }
+                                    return null;
+                                  },
+                                ),
+                                
+                                const SizedBox(height: 20),
+                                
+                                // Student Class Dropdown
+                                Obx(() => _buildDropdownField(
+                                  label: 'Student Class',
+                                  value: selectedClass.value,
+                                  items: classOptions,
+                                  icon: Icons.class_rounded,
+                                  onChanged: (String? newValue) {
+                                    print('Selected Class: $newValue');
+                                    selectedClass.value = newValue ?? '';
+                                  },
+                                  validator: (value) {
+                                    if (value == null || value.isEmpty) {
+                                      return 'Please select student class';
+                                    }
+                                    return null;
+                                  },
+                                )),
+                                
+                                const SizedBox(height: 20),
+                                
+                                // Department Dropdown
+                                Obx(() => _buildDropdownField(
+                                  label: 'Department',
+                                  value: selectedDepartment.value,
+                                  items: departmentOptions,
+                                  icon: Icons.category_rounded,
+                                  onChanged: (String? newValue) {
+                                    print('Selected Department: $newValue');
+                                    selectedDepartment.value = newValue ?? '';
+                                  },
+                                  validator: (value) {
+                                    if (value == null || value.isEmpty) {
+                                      return 'Please select department';
+                                    }
+                                    return null;
+                                  },
+                                )),
+                                
+                                const SizedBox(height: 20),
+                                
+                                // Password Field
+                                Obx(() => _buildTextField(
+                                  controller: _editingControllerPassword,
+                                  hint: "Enter Password",
+                                  icon: Icons.lock_rounded,
+                                  obscureText: _isPasswordObscured.value,
+                                  suffixIcon: GestureDetector(
+                                    onTap: () {
+                                      _isPasswordObscured.value = !_isPasswordObscured.value;
+                                    },
+                                    child: Icon(
+                                      _isPasswordObscured.value
+                                          ? Icons.visibility_rounded
+                                          : Icons.visibility_off_rounded,
+                                      color: Colors.white.withOpacity(0.8),
+                                    ),
+                                  ),
+                                  validator: (value) {
+                                    if (value == null || value.isEmpty) {
+                                      return 'Password is required';
+                                    }
+                                    if (value.length < 3) {
+                                      return 'Password must be at least 3 characters';
+                                    }
+                                    return null;
+                                  },
+                                )),
                               ],
                             ),
                           ),
                         ),
-                        SizedBox(height: 40),
+                        
+                        const SizedBox(height: 30),
+                        
+                        // Register Button
+                        ScaleTransition(
+                          scale: _fadeAnimation,
+                          child: Container(
+                            width: double.infinity,
+                            height: 56,
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [
+                                  Colors.white,
+                                  Colors.white.withOpacity(0.95),
+                                ],
+                              ),
+                              borderRadius: BorderRadius.circular(28),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.2),
+                                  blurRadius: 20,
+                                  offset: const Offset(0, 10),
+                                ),
+                              ],
+                            ),
+                            child: MaterialButton(
+                              onPressed: _handleRegistration,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(28),
+                              ),
+                              child: Text(
+                                "Create Account",
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: kPrimaryColor,
+                                  letterSpacing: 1.0,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        
+                        const SizedBox(height: 20),
+                        
+                        // Login Link
+                        FadeTransition(
+                          opacity: _fadeAnimation,
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                "Already have an account? ",
+                                style: TextStyle(
+                                  color: Colors.white.withOpacity(0.8),
+                                  fontSize: 16,
+                                ),
+                              ),
+                              TextButton(
+                                onPressed: () => Get.back(),
+                                child: const Text(
+                                  'Login',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    decoration: TextDecoration.underline,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        
+                        const SizedBox(height: 30),
                       ],
                     ),
                   ),
-                ],
+                ),
               ),
             ),
           ),
@@ -262,64 +447,45 @@ class RegistrationScreen extends StatelessWidget {
     });
   }
 
-  Widget _buildModernTextField({
+  Widget _buildTextField({
     required TextEditingController controller,
-    required String hintText,
+    required String hint,
     required IconData icon,
     TextInputType keyboardType = TextInputType.text,
-    bool obscureText = false,
     List<TextInputFormatter>? inputFormatters,
+    bool obscureText = false,
     Widget? suffixIcon,
+    String? Function(String?)? validator,
   }) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
-            spreadRadius: 1,
-            blurRadius: 8,
-            offset: Offset(0, 4),
-          ),
-        ],
+        color: Colors.white.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(15),
         border: Border.all(
-          color: Colors.grey.withOpacity(0.2),
+          color: Colors.white.withOpacity(0.3),
           width: 1,
         ),
       ),
-      child: TextField(
+      child: TextFormField(
         controller: controller,
         keyboardType: keyboardType,
-        obscureText: obscureText,
         inputFormatters: inputFormatters,
-        style: TextStyle(
-          fontSize: 16,
-          color: Colors.grey[800],
-          fontWeight: FontWeight.w500,
-        ),
+        obscureText: obscureText,
+        style: const TextStyle(color: Colors.white, fontSize: 16),
+        validator: validator,
         decoration: InputDecoration(
-          hintText: hintText,
+          hintText: hint,
           hintStyle: TextStyle(
-            color: Colors.grey,
-            fontSize: 15,
+            color: Colors.white.withOpacity(0.6),
+            fontSize: 16,
           ),
-          prefixIcon: Container(
-            padding: EdgeInsets.all(12),
-            child: Icon(
-              icon,
-              color: kPrimaryColor,
-              size: 24,
-            ),
+          prefixIcon: Icon(
+            icon,
+            color: Colors.white.withOpacity(0.8),
           ),
-          suffixIcon: suffixIcon != null ? Container(
-            padding: EdgeInsets.all(12),
-            child: suffixIcon,
-          ) : null,
+          suffixIcon: suffixIcon,
           border: InputBorder.none,
-          enabledBorder: InputBorder.none,
-          focusedBorder: InputBorder.none,
-          contentPadding: EdgeInsets.symmetric(
+          contentPadding: const EdgeInsets.symmetric(
             horizontal: 20,
             vertical: 18,
           ),
@@ -328,280 +494,190 @@ class RegistrationScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildModernDropdown({
-    required RxString value,
-    required List<String> options,
-    required String hintText,
+  Widget _buildDropdownField({
+    required String label,
+    required String value,
+    required List<Map<String, String>> items,
     required IconData icon,
+    required Function(String?) onChanged,
+    String? Function(String?)? validator,
   }) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
-            spreadRadius: 1,
-            blurRadius: 8,
-            offset: Offset(0, 4),
-          ),
-        ],
+        color: Colors.white.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(15),
         border: Border.all(
-          color: Colors.grey.withOpacity(0.2),
+          color: Colors.white.withOpacity(0.3),
           width: 1,
         ),
       ),
-      child: Padding(
-        padding: EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-        child: Row(
-          children: [
-            Icon(
-              icon,
-              color: kPrimaryColor,
-              size: 24,
-            ),
-            SizedBox(width: 16),
-            Expanded(
-              child: Obx(() => DropdownButtonFormField<String>(
-                initialValue: value.value,
-                decoration: InputDecoration(
-                  border: InputBorder.none,
-                  enabledBorder: InputBorder.none,
-                  focusedBorder: InputBorder.none,
-                  hintText: hintText,
-                  hintStyle: TextStyle(
-                    color: Colors.grey[500],
-                    fontSize: 15,
-                  ),
-                ),
-                dropdownColor: Colors.white,
-                style: TextStyle(
-                  color: Colors.grey,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                ),
-                icon: Icon(
-                  Icons.keyboard_arrow_down_rounded,
-                  color: Colors.grey[600],
-                  size: 24,
-                ),
-                items: options.map((String option) {
-                  return DropdownMenuItem<String>(
-                    value: option,
-                    child: Text(
-                      option.toUpperCase(),
-                      style: TextStyle(
-                        color: Colors.grey[800],
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  );
-                }).toList(),
-                onChanged: (String? newValue) {
-                  if (newValue != null) {
-                    value.value = newValue;
-                  }
-                },
-              )),
-            ),
-          ],
+      child: DropdownButtonFormField<String>(
+        value: value.isEmpty ? null : value,
+        validator: validator,
+        decoration: InputDecoration(
+          prefixIcon: Icon(
+            icon,
+            color: Colors.white.withOpacity(0.8),
+          ),
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 20,
+            vertical: 18,
+          ),
         ),
+        hint: Text(
+          'Select $label',
+          style: TextStyle(
+            color: Colors.white.withOpacity(0.6),
+            fontSize: 16,
+          ),
+        ),
+        dropdownColor: kPrimaryColor.withOpacity(0.9),
+        iconEnabledColor: Colors.white.withOpacity(0.8),
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 16,
+        ),
+        items: items.skip(1).map((Map<String, String> item) { // Skip the first "Select" option
+          return DropdownMenuItem<String>(
+            value: item['value'],
+            child: Text(
+              item['label']!,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+              ),
+            ),
+          );
+        }).toList(),
+        onChanged: onChanged,
       ),
     );
   }
 
-  Widget _buildModernButton(BuildContext context, Size size) {
-    return Container(
-      width: double.infinity,
-      height: 56,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        gradient: LinearGradient(
-          colors: [
-            kPrimaryColor,
-            kPrimaryColor.withOpacity(0.8),
-          ],
-          begin: Alignment.centerLeft,
-          end: Alignment.centerRight,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: kPrimaryColor.withOpacity(0.3),
-            spreadRadius: 2,
-            blurRadius: 12,
-            offset: Offset(0, 6),
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(16),
-          onTap: () {
-            if (!_authController.authLoading.value) {
-              _handleRegistration(context);
-            }
-          },
-          child: Center(
-            child: _authController.authLoading.value
-                ? SizedBox(
-                    width: 24,
-                    height: 24,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2.5,
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                    ),
-                  )
-                : Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.person_add_rounded,
-                        color: Colors.white,
-                        size: 24,
-                      ),
-                      SizedBox(width: 12),
-                      Text(
-                        "Create Account",
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 0.5,
-                        ),
-                      ),
-                    ],
-                  ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _handleRegistration(BuildContext context) {
-    FocusScope.of(context).unfocus();
+  void _handleRegistration() {
+    print('=== REGISTRATION ATTEMPT STARTED ===');
     
-    // Get values
-    String mobileNumber = _editingControllerMobileNumber.text.trim();
-    String password = _editingControllerPassword.text.trim();
-    String fullName = _editingControllerFullName.text.trim();
-    String emailAddress = _editingControllerEmailAddress.text.trim();
-    String institute = _editingControllerInstitute.text.trim();
-    String hscExamYear = _editingControllerHSCExamYear.text.trim();
-    String selectedClass = _selectedClass.value;
-    String selectedDepartment = _selectedDepartment.value;
-
-    print("🔍 Registration attempt:");
-    print("👤 Full Name: '$fullName'");
-    print("📱 Mobile: '$mobileNumber'");
-    print("📧 Email: '$emailAddress'");
-    print("🏫 Institute: '$institute'");
-    print("📅 HSC Year: '$hscExamYear'");
-    print("📚 Class: '$selectedClass'");
-    print("🎯 Department: '$selectedDepartment'");
-    print("🔒 Password length: ${password.length}");
-
-    // Validation
-    if (mobileNumber.isEmpty ||
-        password.isEmpty ||
-        fullName.isEmpty ||
-        emailAddress.isEmpty ||
-        institute.isEmpty ||
-        hscExamYear.isEmpty) {
-      Get.snackbar(
-        'Validation Error',
-        "Please fill in all required fields.",
-        backgroundColor: Colors.red[600],
-        colorText: Colors.white,
-        snackPosition: SnackPosition.TOP,
-        duration: Duration(seconds: 3),
-        icon: Icon(Icons.error_outline, color: Colors.white),
-        borderRadius: 10,
-        margin: EdgeInsets.all(10),
-      );
-      return;
+    // Print form validation status
+    print('Form is valid: ${_formKey.currentState?.validate()}');
+    
+    if (_formKey.currentState!.validate()) {
+      FocusScope.of(context).unfocus();
+      
+      // Extract and validate data
+      String mobileNumber = _editingControllerMobileNumber.text.trim();
+      String password = _editingControllerPassword.text.trim();
+      String fullName = _editingControllerFullName.text.trim();
+      String emailAddress = _editingControllerEmailAddress.text.trim();
+      String institute = _editingControllerInstitute.text.trim();
+      String studentClass = selectedClass.value;
+      String department = selectedDepartment.value;
+      
+      // Print all form data
+      print('=== FORM DATA ===');
+      print('Full Name: "$fullName"');
+      print('Mobile Number (raw): "$mobileNumber"');
+      print('Email: "$emailAddress"');
+      print('Institute: "$institute"');
+      print('Student Class: "$studentClass"');
+      print('Department: "$department"');
+      print('Password Length: ${password.length}');
+      
+      // Validate required fields
+      if (fullName.isEmpty) {
+        print('ERROR: Full name is empty');
+        _showError('Full name is required');
+        return;
+      }
+      
+      if (mobileNumber.isEmpty) {
+        print('ERROR: Mobile number is empty');
+        _showError('Mobile number is required');
+        return;
+      }
+      
+      if (emailAddress.isEmpty) {
+        print('ERROR: Email is empty');
+        _showError('Email address is required');
+        return;
+      }
+      
+      if (institute.isEmpty) {
+        print('ERROR: Institute is empty');
+        _showError('Institute name is required');
+        return;
+      }
+      
+      if (studentClass.isEmpty) {
+        print('ERROR: Student class not selected');
+        _showError('Please select student class');
+        return;
+      }
+      
+      if (department.isEmpty) {
+        print('ERROR: Department not selected');
+        _showError('Please select department');
+        return;
+      }
+      
+      if (password.isEmpty) {
+        print('ERROR: Password is empty');
+        _showError('Password is required');
+        return;
+      }
+      
+      // Add the +88 prefix to mobile number
+      String fullMobileNumber = '+88$mobileNumber';
+      print('Mobile Number (with prefix): "$fullMobileNumber"');
+      
+      // Prepare final data object
+      Map<String, dynamic> finalData = {
+        'full_name': fullName,
+        'mobile_number': fullMobileNumber,
+        'email': emailAddress,
+        'institute': institute,
+        'class': studentClass,
+        'department': department,
+        'password': password,
+      };
+      
+      print('=== FINAL API DATA ===');
+      finalData.forEach((key, value) {
+        print('$key: "$value"');
+      });
+      
+      print('=== CALLING AUTH CONTROLLER ===');
+      
+      // Call the registration method
+      try {
+        _authController.tryToSignUp(
+          fullName: fullName,
+          mobileNumber: fullMobileNumber,
+          email: emailAddress,
+          institute: institute,
+          studentClass: studentClass,
+          department: department,
+          password: password,
+        );
+        print('Registration method called successfully');
+      } catch (e) {
+        print('ERROR calling registration method: $e');
+        _showError('Registration failed: $e');
+      }
+    } else {
+      print('=== FORM VALIDATION FAILED ===');
+      _showError('Please fill all required fields correctly');
     }
-
-    // Mobile number validation
-    if (mobileNumber.length != 11 || !mobileNumber.startsWith('01')) {
-      Get.snackbar(
-        'Invalid Phone Number',
-        "Please enter a valid 11-digit mobile number starting with 01.",
-        backgroundColor: Colors.red[600],
-        colorText: Colors.white,
-        snackPosition: SnackPosition.TOP,
-        duration: Duration(seconds: 3),
-        icon: Icon(Icons.phone_disabled, color: Colors.white),
-        borderRadius: 10,
-        margin: EdgeInsets.all(10),
-      );
-      return;
-    }
-
-    // Password validation
-    if (password.length < 4) {
-      Get.snackbar(
-        'Weak Password',
-        "Password must be at least 4 characters long.",
-        backgroundColor: Colors.red[600],
-        colorText: Colors.white,
-        snackPosition: SnackPosition.TOP,
-        duration: Duration(seconds: 3),
-        icon: Icon(Icons.lock_open, color: Colors.white),
-        borderRadius: 10,
-        margin: EdgeInsets.all(10),
-      );
-      return;
-    }
-
-    // Email validation
-    if (!GetUtils.isEmail(emailAddress)) {
-      Get.snackbar(
-        'Invalid Email',
-        "Please enter a valid email address.",
-        backgroundColor: Colors.red[600],
-        colorText: Colors.white,
-        snackPosition: SnackPosition.TOP,
-        duration: Duration(seconds: 3),
-        icon: Icon(Icons.email_outlined, color: Colors.white),
-        borderRadius: 10,
-        margin: EdgeInsets.all(10),
-      );
-      return;
-    }
-
-    // HSC Year validation
-    int? hscYear = int.tryParse(hscExamYear);
-    if (hscYear == null || hscYear < 2000 || hscYear > DateTime.now().year + 5) {
-      Get.snackbar(
-        'Invalid Year',
-        "Please enter a valid HSC exam year (2000-${DateTime.now().year + 5}).",
-        backgroundColor: Colors.red[600],
-        colorText: Colors.white,
-        snackPosition: SnackPosition.TOP,
-        duration: Duration(seconds: 3),
-        icon: Icon(Icons.calendar_today, color: Colors.white),
-        borderRadius: 10,
-        margin: EdgeInsets.all(10),
-      );
-      return;
-    }
-
-    // Format mobile number
-    String formattedMobile = '+88$mobileNumber';
-    print("📞 Formatted mobile: '$formattedMobile'");
-
-    // Call registration function
-    _authController.tryToSignUp(
-      fullName: fullName,
-      mobileNumber: formattedMobile,
-      email: emailAddress,
-      institute: institute,
-      hscExamYear: hscYear,
-      password: password,
-      studentClass: selectedClass,
-      department: selectedDepartment,
+  }
+  
+  void _showError(String message) {
+    Get.snackbar(
+      'Registration Error',
+      message,
+      backgroundColor: Colors.red,
+      colorText: Colors.white,
+      snackPosition: SnackPosition.BOTTOM,
+      duration: const Duration(seconds: 4),
     );
   }
 }

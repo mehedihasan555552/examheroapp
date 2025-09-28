@@ -106,7 +106,7 @@ class _BoardMCQListViewState extends State<BoardMCQListView> {
 
 
       final response = await http.get(
-        Uri.parse('https://examhero.xyz/api/v1/mcq-preparation/board-books/'),
+        Uri.parse('https://admin.examhero.xyz/api/v1/mcq-preparation/board-books/'),
         headers: headers,
       ).timeout(Duration(seconds: 30));
 
@@ -162,7 +162,7 @@ class _BoardMCQListViewState extends State<BoardMCQListView> {
 
 
       final response = await http.get(
-        Uri.parse('https://examhero.xyz/api/v1/mcq-preparation/board-names/'),
+        Uri.parse('https://admin.examhero.xyz/api/v1/mcq-preparation/board-names/'),
         headers: headers,
       ).timeout(Duration(seconds: 30));
 
@@ -218,7 +218,7 @@ class _BoardMCQListViewState extends State<BoardMCQListView> {
 
 
       final response = await http.get(
-        Uri.parse('https://examhero.xyz/api/v1/mcq-preparation/board-years/'),
+        Uri.parse('https://admin.examhero.xyz/api/v1/mcq-preparation/board-years/'),
         headers: headers,
       ).timeout(Duration(seconds: 30));
 
@@ -268,7 +268,7 @@ class _BoardMCQListViewState extends State<BoardMCQListView> {
 
     try {
       // Now using names instead of IDs in the API call
-      final String url = 'https://examhero.xyz/api/v1/mcq-preparation/board-mcq/'
+      final String url = 'https://admin.examhero.xyz/api/v1/mcq-preparation/board-mcq/'
           '?board_book=$_selectedBoardBook'
           '&board_name=$_selectedBoardName'
           '&board_year=$_selectedBoardYear';

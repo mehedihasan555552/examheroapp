@@ -98,7 +98,7 @@ class _FilteredExamListViewState extends State<FilteredExamListView> {
 
 
       final response = await http.get(
-        Uri.parse('https://examhero.xyz/api/v1/mcq-preparation/board-books/'),
+        Uri.parse('https://admin.examhero.xyz/api/v1/mcq-preparation/board-books/'),
         headers: headers,
       ).timeout(Duration(seconds: 30));
 
@@ -152,7 +152,7 @@ class _FilteredExamListViewState extends State<FilteredExamListView> {
 
 
       final response = await http.get(
-        Uri.parse('https://examhero.xyz/api/v1/mcq-preparation/board-book-sections/'),
+        Uri.parse('https://admin.examhero.xyz/api/v1/mcq-preparation/board-book-sections/'),
         headers: headers,
       ).timeout(Duration(seconds: 30));
 
@@ -206,7 +206,7 @@ class _FilteredExamListViewState extends State<FilteredExamListView> {
 
 
       final response = await http.get(
-        Uri.parse('https://examhero.xyz/api/v1/mcq-preparation/board-names/'),
+        Uri.parse('https://admin.examhero.xyz/api/v1/mcq-preparation/board-names/'),
         headers: headers,
       ).timeout(Duration(seconds: 30));
 
@@ -260,7 +260,7 @@ class _FilteredExamListViewState extends State<FilteredExamListView> {
 
 
       final response = await http.get(
-        Uri.parse('https://examhero.xyz/api/v1/mcq-preparation/board-years/'),
+        Uri.parse('https://admin.examhero.xyz/api/v1/mcq-preparation/board-years/'),
         headers: headers,
       ).timeout(Duration(seconds: 30));
 
@@ -307,7 +307,7 @@ class _FilteredExamListViewState extends State<FilteredExamListView> {
 
 
     try {
-      final String url = 'https://examhero.xyz/api/v1/mcq-preparation/board-cq/'
+      final String url = 'https://admin.examhero.xyz/api/v1/mcq-preparation/board-cq/'
           '?board_book=$_selectedBoardBook'
           '&board_book_section=$_selectedBoardSection'
           '&board_name=$_selectedBoardName'
