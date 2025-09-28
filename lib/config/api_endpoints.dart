@@ -1,8 +1,8 @@
 // const kDomain = 'http://192.168.166.47:8000';
-const kDomain = 'https://examhero.xyz';
+const kDomain = 'https://admin.examhero.xyz';
 const _baseUrl = '$kDomain/api/v1';
 //Auth
-const kLoginUrl = 'https://examhero.xyz/api/v1/auth/token/';
+const kLoginUrl = 'https://admin.examhero.xyz/api/v1/auth/token/';
 const kRegisterWithProfileUrl = '$_baseUrl/auth/register-with-profile-create/';
 const kLogoutUrl = '$_baseUrl/auth/logout/';
 const kChangePasswordUpdateUrl = '$_baseUrl/auth/change-password/';
@@ -48,14 +48,14 @@ const kPackagePurchasedCreateUrl =
 const kEarningHistoryListUrl = '$_baseUrl/balance/earning-history-list/';
 
 //new update endpoind
-const kBannerList = 'https://examhero.xyz/api/v1/mcq-preparation/banner/';
-const kBottomBannerList = 'http://examhero.xyz/api/v1/mcq-preparation/banner-second/';
-const kFreePdfList = 'https://examhero.xyz/api/v1/documents/pdfs/free/';
-const kPaidPdfList = 'https://examhero.xyz/api/v1/documents/pdfs/paid/';
-const kLiveList = 'http://examhero.xyz/api/v1/mcq-preparation/live/';
-const kArchiveList = 'https://examhero.xyz/api/v1/mcq-preparation/archive/';
-const kUpcomingList = 'https://examhero.xyz/api/v1/mcq-preparation/upcoming/';
+const kBannerList = 'https://admin.examhero.xyz/api/v1/mcq-preparation/banner/';
+const kBottomBannerList = 'http://admin.examhero.xyz/api/v1/mcq-preparation/banner-second/';
+const kFreePdfList = 'https://admin.examhero.xyz/api/v1/documents/pdfs/free/';
+const kPaidPdfList = 'https://admin.examhero.xyz/api/v1/documents/pdfs/paid/';
+const kLiveList = 'http://admin.examhero.xyz/api/v1/mcq-preparation/live/';
+const kArchiveList = 'https://admin.examhero.xyz/api/v1/mcq-preparation/archive/';
+const kUpcomingList = 'https://admin.examhero.xyz/api/v1/mcq-preparation/upcoming/';
 const kModelTestList =
-    'https://examhero.xyz/api/v1/mcq-preparation/model-test-subject-list/';
+    'https://admin.examhero.xyz/api/v1/mcq-preparation/model-test-subject-list/';
 String kBookmarks(int mcqId) =>
-    'https://examhero.xyz/api/v1/mcq-preparation/mcq-bookmark/$mcqId/';
+    'https://admin.examhero.xyz/api/v1/mcq-preparation/mcq-bookmark/$mcqId/';
