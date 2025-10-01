@@ -9,10 +9,9 @@ import 'package:mission_dmc/screens/inner_screens/screens_parts/inner_page_heade
 import 'package:mission_dmc/screens/mcq_preparation/mcq_list_view.dart';
 import 'package:mission_dmc/screens/mcq_preparation/package_view.dart';
 import 'package:mission_dmc/screens/mcq_preparation/ranking_screen.dart';
-import 'package:mission_dmc/screens/mcq_preparation/video_list_screen.dart'; // Add this
-import 'package:mission_dmc/screens/mcq_preparation/video_player_screen.dart'; // Add this
+import 'package:mission_dmc/screens/mcq_preparation/video_list_screen.dart';
+import 'package:youtube_player_flutter/youtube_player_flutter.dart'; // Added YouTube player import
 import 'package:mission_dmc/widgets/reusable_widgets.dart';
-
 
 class BoardMCQListView extends StatefulWidget {
   const BoardMCQListView({
@@ -22,11 +21,9 @@ class BoardMCQListView extends StatefulWidget {
   
   final dynamic categoryData;
 
-
   @override
   State<BoardMCQListView> createState() => _BoardMCQListViewState();
 }
-
 
 class _BoardMCQListViewState extends State<BoardMCQListView> {
   final AuthController _authController = Get.find();
@@ -51,7 +48,6 @@ class _BoardMCQListViewState extends State<BoardMCQListView> {
   bool _isLoadingNames = true;
   bool _isLoadingYears = true;
 
-
   @override
   void initState() {
     super.initState();
@@ -65,7 +61,6 @@ class _BoardMCQListViewState extends State<BoardMCQListView> {
       item['video_link'].toString().isNotEmpty
     );
   }
-
 
   Future<void> _initializeData() async {
     // Fetch all dropdown data first
@@ -90,13 +85,11 @@ class _BoardMCQListViewState extends State<BoardMCQListView> {
     _fetchData();
   }
 
-
   Future<void> _fetchBoardBooks() async {
     try {
       setState(() {
         _isLoadingBooks = true;
       });
-
 
       Map<String, String> headers = {
         'accept': '*/*',
@@ -104,30 +97,26 @@ class _BoardMCQListViewState extends State<BoardMCQListView> {
         'Authorization': 'Token ${_authController.token.value}',
       };
 
-
       final response = await http.get(
         Uri.parse('https://admin.examhero.xyz/api/v1/mcq-preparation/board-books/'),
         headers: headers,
       ).timeout(Duration(seconds: 30));
-
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         print('Board Books API Response: $data');
         
         Map<String, String> bookMap = {
-            "": "বই" // Default key-value pair
-          };
-          if (data is List) {
-            for (var item in data) {
-              String key = item['book_name'] ?? 'Unknown Book';
-              String value = item['book_name'] ?? 'Unknown Book';
-              bookMap[key] = value;
-            }
+          "": "বই" // Default key-value pair
+        };
+        if (data is List) {
+          for (var item in data) {
+            String key = item['book_name'] ?? 'Unknown Book';
+            String value = item['book_name'] ?? 'Unknown Book';
+            bookMap[key] = value;
           }
+        }
 
-
-        
         setState(() {
           _boardBooks = bookMap;
           _isLoadingBooks = false;
@@ -146,13 +135,11 @@ class _BoardMCQListViewState extends State<BoardMCQListView> {
     }
   }
 
-
   Future<void> _fetchBoardNames() async {
     try {
       setState(() {
         _isLoadingNames = true;
       });
-
 
       Map<String, String> headers = {
         'accept': '*/*',
@@ -160,19 +147,17 @@ class _BoardMCQListViewState extends State<BoardMCQListView> {
         'Authorization': 'Token ${_authController.token.value}',
       };
 
-
       final response = await http.get(
         Uri.parse('https://admin.examhero.xyz/api/v1/mcq-preparation/board-names/'),
         headers: headers,
       ).timeout(Duration(seconds: 30));
-
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         print('Board Names API Response: $data');
         
         Map<String, String> nameMap = {
-          "": "বোর্ড" // Default key-value pair (key can also be "default" or "" as you need)
+          "": "বোর্ড" // Default key-value pair
         };
         if (data is List) {
           for (var item in data) {
@@ -182,8 +167,6 @@ class _BoardMCQListViewState extends State<BoardMCQListView> {
           }
         }
 
-
-        
         setState(() {
           _boardNames = nameMap;
           _isLoadingNames = false;
@@ -202,13 +185,11 @@ class _BoardMCQListViewState extends State<BoardMCQListView> {
     }
   }
 
-
   Future<void> _fetchBoardYears() async {
     try {
       setState(() {
         _isLoadingYears = true;
       });
-
 
       Map<String, String> headers = {
         'accept': '*/*',
@@ -216,30 +197,26 @@ class _BoardMCQListViewState extends State<BoardMCQListView> {
         'Authorization': 'Token ${_authController.token.value}',
       };
 
-
       final response = await http.get(
         Uri.parse('https://admin.examhero.xyz/api/v1/mcq-preparation/board-years/'),
         headers: headers,
       ).timeout(Duration(seconds: 30));
-
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         print('Board Years API Response: $data');
         
         Map<String, String> yearMap = {
-            "": "সাল" // Default key-value pair
-          };
-          if (data is List) {
-            for (var item in data) {
-              String key = item['board_year']?.toString() ?? 'Unknown Year';
-              String value = item['board_year']?.toString() ?? 'Unknown Year';
-              yearMap[key] = value;
-            }
+          "": "সাল" // Default key-value pair
+        };
+        if (data is List) {
+          for (var item in data) {
+            String key = item['board_year']?.toString() ?? 'Unknown Year';
+            String value = item['board_year']?.toString() ?? 'Unknown Year';
+            yearMap[key] = value;
           }
+        }
 
-
-        
         setState(() {
           _boardYears = yearMap;
           _isLoadingYears = false;
@@ -258,13 +235,11 @@ class _BoardMCQListViewState extends State<BoardMCQListView> {
     }
   }
 
-
   Future<void> _fetchData() async {
     setState(() {
       _isLoading = true;
       _errorMessage = '';
     });
-
 
     try {
       // Now using names instead of IDs in the API call
@@ -273,9 +248,7 @@ class _BoardMCQListViewState extends State<BoardMCQListView> {
           '&board_name=$_selectedBoardName'
           '&board_year=$_selectedBoardYear';
 
-
       print('API Request URL: $url');
-
 
       Map<String, String> headers = {
         'accept': '*/*',
@@ -283,15 +256,12 @@ class _BoardMCQListViewState extends State<BoardMCQListView> {
         'Authorization': 'Token ${_authController.token.value}',
       };
 
-
       print('Using auth token: ${_authController.token.value.substring(0, 10)}...');
-
 
       final response = await http.get(
         Uri.parse(url),
         headers: headers,
       ).timeout(Duration(seconds: 30));
-
 
       print('API Response Status: ${response.statusCode}');
       
@@ -309,12 +279,11 @@ class _BoardMCQListViewState extends State<BoardMCQListView> {
             
             String titleString = '$boardBook বই - $boardName বোর্ড  - $boardYear';
 
-
             return {
               'id': item['id'],
               'title': titleString,
-              'marks': item['marks']?.toString() ?? '100',
-              'duration': item['duration']?.toString() ?? '120',
+              'marks': item['marks']?.toString() ?? '30',
+              'duration': item['duration']?.toString() ?? '30',
               'question': item['question'],
               'option_one': item['option_one'],
               'option_two': item['option_two'],
@@ -331,7 +300,6 @@ class _BoardMCQListViewState extends State<BoardMCQListView> {
               'video_link': item['video_link'], // Added video_link
             };
           }).toList();
-
 
           setState(() {
             _allItems = transformedItems;
@@ -383,11 +351,9 @@ class _BoardMCQListViewState extends State<BoardMCQListView> {
     }
   }
 
-
   void _applyFilters() {
     _fetchData();
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -679,7 +645,6 @@ class _BoardMCQListViewState extends State<BoardMCQListView> {
     );
   }
 
-
   Widget _buildDataDisplay() {
     if (_isLoading) {
       return Center(
@@ -704,7 +669,6 @@ class _BoardMCQListViewState extends State<BoardMCQListView> {
         ),
       );
     }
-
 
     if (_errorMessage.isNotEmpty) {
       return Center(
@@ -746,7 +710,6 @@ class _BoardMCQListViewState extends State<BoardMCQListView> {
       );
     }
 
-
     if (_filteredItems.isEmpty) {
       return Center(
         child: Padding(
@@ -783,7 +746,6 @@ class _BoardMCQListViewState extends State<BoardMCQListView> {
       );
     }
 
-
     return ListView.builder(
       physics: const NeverScrollableScrollPhysics(),
       shrinkWrap: true,
@@ -795,7 +757,6 @@ class _BoardMCQListViewState extends State<BoardMCQListView> {
       ),
     );
   }
-
 
   Widget _categoryItem({
     required dynamic data,
@@ -986,7 +947,6 @@ class _BoardMCQListViewState extends State<BoardMCQListView> {
     );
   }
 
-
   void _handleStartExam(dynamic data) {
     if (int.tryParse(_authController.profile.value.package.toString()) == null) {
       _showPremiumDialog();
@@ -999,11 +959,6 @@ class _BoardMCQListViewState extends State<BoardMCQListView> {
           ));
     }
   }
-
-
-  
-  
-
 
   void _handleStudy(dynamic data) {
     if (int.tryParse(_authController.profile.value.package.toString()) == null) {
@@ -1018,7 +973,6 @@ class _BoardMCQListViewState extends State<BoardMCQListView> {
     }
   }
 
-
   void _handleRanking(dynamic data) {
     Get.to(() => RankingScreen(
           isSubjectWise: false,
@@ -1026,68 +980,56 @@ class _BoardMCQListViewState extends State<BoardMCQListView> {
         ));
   }
 
-  // New method to handle individual video
+  // Modified method to handle individual video with YouTube player
   void _handleVideo(dynamic data) {
     if (int.tryParse(_authController.profile.value.package.toString()) == null) {
       _showPremiumDialog();
     } else {
-      if (data['video_link'] != null && data['video_link'].toString().isNotEmpty) {
-        Get.to(() => VideoPlayerScreen(
-          videoUrl: data['video_link'],
-          title: data['title'] ?? 'ভিডিও',
-        ));
-      } else {
+      final videoUrl = data['video_link']?.toString() ?? '';
+      if (videoUrl.isEmpty) {
         Get.snackbar(
           'ত্রুটি',
           'ভিডিও লিংক পাওয়া যায়নি',
           backgroundColor: Colors.red,
           colorText: Colors.white,
         );
+        return;
       }
+
+      // Convert URL to YouTube videoId
+      final videoId = YoutubePlayer.convertUrlToId(videoUrl);
+      if (videoId == null) {
+        Get.snackbar(
+          'ত্রুটি',
+          'অবৈধ ইউটিউব লিংক',
+          backgroundColor: Colors.red,
+          colorText: Colors.white,
+        );
+        return;
+      }
+
+      Get.to(() => _YouTubeVideoPlayer(
+            videoId: videoId,
+            title: data['title'] ?? 'ভিডিও',
+          ));
     }
   }
 
-  // New method to handle video list
+  // Modified method to handle video list
   void _handleVideoList() {
     if (int.tryParse(_authController.profile.value.package.toString()) == null) {
       _showPremiumDialog();
     } else {
-      Get.to(() => VideoListScreen(filteredItems: _filteredItems));
+      List<dynamic> videosWithLinks = _filteredItems.where((item) =>
+          item['video_link'] != null && item['video_link'].toString().isNotEmpty
+      ).toList();
+
+      Get.to(() => _VideoListScreen(
+        items: videosWithLinks,
+        title: 'ভিডিও তালিকা',
+      ));
     }
   }
-
-
-
-//   void _handleVideo(dynamic data) {
-//   // Comment out the premium check for testing
-//   // if (int.tryParse(_authController.profile.value.package.toString()) == null) {
-//   //   _showPremiumDialog();
-//   // } else {
-//     if (data['video_link'] != null && data['video_link'].toString().isNotEmpty) {
-//       Get.to(() => VideoPlayerScreen(
-//         videoUrl: data['video_link'],
-//         title: data['title'] ?? 'ভিডিও',
-//       ));
-//     } else {
-//       Get.snackbar(
-//         'ত্রুটি',
-//         'ভিডিও লিংক পাওয়া যায়নি',
-//         backgroundColor: Colors.red,
-//         colorText: Colors.white,
-//       );
-//     }
-//   // }
-// }
-
-// void _handleVideoList() {
-//   // Comment out the premium check for testing
-//   // if (int.tryParse(_authController.profile.value.package.toString()) == null) {
-//   //   _showPremiumDialog();
-//   // } else {
-//     Get.to(() => VideoListScreen(filteredItems: _filteredItems));
-//   // }
-// }
-
 
   void _showPremiumDialog() {
     showDialog(
@@ -1155,6 +1097,130 @@ class _BoardMCQListViewState extends State<BoardMCQListView> {
           ],
         );
       },
+    );
+  }
+}
+
+// YouTube Video Player Screen
+class _YouTubeVideoPlayer extends StatefulWidget {
+  final String videoId;
+  final String title;
+
+  const _YouTubeVideoPlayer({
+    Key? key,
+    required this.videoId,
+    required this.title,
+  }) : super(key: key);
+
+  @override
+  State<_YouTubeVideoPlayer> createState() => _YouTubeVideoPlayerState();
+}
+
+class _YouTubeVideoPlayerState extends State<_YouTubeVideoPlayer> {
+  late YoutubePlayerController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = YoutubePlayerController(
+      initialVideoId: widget.videoId,
+      flags: const YoutubePlayerFlags(
+        autoPlay: false,
+        mute: false,
+        enableCaption: true,
+        forceHD: false,
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(widget.title, style: const TextStyle(fontSize: 16)),
+        backgroundColor: kPrimaryColor,
+        foregroundColor: Colors.white,
+      ),
+      body: YoutubePlayerBuilder(
+        player: YoutubePlayer(
+          controller: _controller,
+          showVideoProgressIndicator: true,
+          progressIndicatorColor: kPrimaryColor,
+          progressColors: ProgressBarColors(
+            playedColor: kPrimaryColor,
+            handleColor: kPrimaryColor,
+          ),
+        ),
+        builder: (context, player) {
+          return Column(
+            children: [
+              player,
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+// Video List Screen
+class _VideoListScreen extends StatelessWidget {
+  final List<dynamic> items;
+  final String title;
+
+  const _VideoListScreen({
+    Key? key,
+    required this.items,
+    required this.title,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(title),
+        backgroundColor: kPrimaryColor,
+        foregroundColor: Colors.white,
+      ),
+      body: ListView.builder(
+        padding: const EdgeInsets.all(16),
+        itemCount: items.length,
+        itemBuilder: (context, index) {
+          final item = items[index];
+          return Card(
+            margin: const EdgeInsets.only(bottom: 12),
+            child: ListTile(
+              leading: CircleAvatar(
+                backgroundColor: Colors.purple,
+                child: Icon(
+                  Icons.play_arrow,
+                  color: Colors.white,
+                ),
+              ),
+              title: Text(
+                item['title'] ?? 'No Title',
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+              trailing: const Icon(Icons.arrow_forward_ios),
+              onTap: () {
+                final videoId = YoutubePlayer.convertUrlToId(item['video_link']);
+                if (videoId != null) {
+                  Get.to(() => _YouTubeVideoPlayer(
+                        videoId: videoId,
+                        title: item['title'] ?? 'ভিডিও',
+                      ));
+                }
+              },
+            ),
+          );
+        },
+      ),
     );
   }
 }

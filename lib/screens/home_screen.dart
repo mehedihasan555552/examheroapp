@@ -23,10 +23,16 @@ import 'new_update/bookmarkslist.dart';
 import 'new_update/live_exam.dart';
 import 'new_update/model_test/modeltestlist.dart';
 import 'mcq_preparation/board_cqs.dart';
+import 'mcq_preparation/batch_cqs.dart';
+
 import 'mcq_preparation/board_mcqs.dart';
+import 'mcq_preparation/batch_mcqs.dart';
+
 import 'mcq_preparation/teacher_screen.dart';
 
 import 'package:mission_dmc/screens/chat/chat_list_view.dart';
+
+import 'package:mission_dmc/screens/mcq_preparation/subject_list_view.dart';
 
 
 class HomeScreen extends StatefulWidget {
@@ -634,24 +640,22 @@ class _HomeScreenState extends State<HomeScreen> {
                       children: [
                         Expanded(
                           child: _buildFeatureCard(
-                            onTap: () {
-                              // Navigate to Chapter Test
-                              // Get.to(() => ChapterTestView());
-                            },
+                            onTap: () => Get.to(() => SubjectListView()),
                             title: 'অধ্যায়ের পরীক্ষা',
-                            subtitle: 'বই → অধ্যায়ের সিলেক্ট করে\nপরীক্ষা দিন',
+                            subtitle: 'বই → অধ্যায়ের ভিত্তিতে\nকরে',
                             icon: Icons.book_outlined,
                             color: Colors.blue,
                             screenWidth: screenWidth,
                             isSmallDevice: isSmallDevice,
                           ),
+                         
                         ),
                         SizedBox(width: 12),
                         Expanded(
                           child: _buildFeatureCard(
                             onTap: () {
                               // Navigate to Batch MCQ
-                              // Get.to(() => BatchMCQView());
+                              Get.to(() => BatchMCQsPage());
                             },
                             title: 'ব্যাচ MCQ',
                             subtitle: 'বই → ব্যাচ → সাল সিলেক্ট\nকরে পরীক্ষা দিন',
@@ -672,7 +676,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           child: _buildFeatureCard(
                             onTap: () {
                               // Navigate to Batch CQ
-                              // Get.to(() => BatchCQView());
+                              Get.to(() => BatchCQsPage());
                             },
                             title: 'ব্যাচ CQ',
                             subtitle: 'বই → অধ্যায় → ব্যাচ → সাল\nসিলেক্ট করে লেখা',
@@ -687,7 +691,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           child: _buildFeatureCard(
                             onTap: () {
                               // Navigate to Live MCQ
-                              // Get.to(() => LiveMCQView());
+                              Get.to(() => LiveExamView());
                             },
                             title: 'লাইভ MCQ',
                             subtitle: 'লাইভ পরীক্ষা নিন\nUpcoming/Archive দেখুন',
@@ -745,7 +749,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           child: _buildFeatureCard(
                             onTap: () => Get.to(() => ModelTestListView()),
                             title: 'Model Test',
-                            subtitle: 'Medical standard\nQuestions(100 marks)',
+                            subtitle: 'বই ভিত্তিক প্রস্তুতি যাচাই করুন',
                             icon: Icons.quiz,
                             color: Colors.indigo,
                             screenWidth: screenWidth,
@@ -756,8 +760,8 @@ class _HomeScreenState extends State<HomeScreen> {
                         Expanded(
                           child: _buildFeatureCard(
                             onTap: () => Navigator.pushNamed(context, MCQTest.id),
-                            title: 'MCQ Preparation',
-                            subtitle: 'Medical & University\nQuestion bank',
+                            title: 'Practical খাতা',
+                            subtitle: '',
                             icon: Icons.help_outline,
                             color: Colors.pink,
                             screenWidth: screenWidth,

@@ -117,7 +117,7 @@ class BannerController extends GetxController {
 
     try {
       final response = await dio.get(
-        'https://examhero.xyz/api/v1/documents/pdfs/free/',
+        'https://admin.examhero.xyz/api/v1/documents/pdfs/free/',
           options: Options(headers: {
             'accept': '*/*',
             'Authorization': 'Token ${authController.token.value}',
@@ -146,7 +146,7 @@ class BannerController extends GetxController {
 
     try {
       final response = await dio.get(
-        'https://examhero.xyz/api/v1/documents/pdfs/paid/',
+        'https://admin.examhero.xyz/api/v1/documents/pdfs/paid/',
         options: Options(headers: {
           'accept': '*/*',
           'Authorization': 'Token ${authController.token.value}',
@@ -279,7 +279,7 @@ class BannerController extends GetxController {
 
     try {
       final response = await dio.get(
-        'http://examhero.xyz/api/v1/mcq-preparation/course/',
+        'http://admin.examhero.xyz/api/v1/mcq-preparation/course/',
         options: Options(headers: {
           'accept': '*/*',
           'Authorization': 'Token ${authController.token.value}',
@@ -312,7 +312,7 @@ class BannerController extends GetxController {
 
     try {
       final response = await dio.post(
-        'http://examhero.xyz/api/v1/mcq-preparation/promo-code/',
+        'http://admin.examhero.xyz/api/v1/mcq-preparation/promo-code/',
         data: data,
         options: Options(headers: {
           'accept': '*/*',
@@ -432,7 +432,7 @@ class BannerController extends GetxController {
 
     try {
       final response = await dio.get(
-        'https://examhero.xyz/api/v1/mcq-preparation/user-mcq-bookmark-list/',
+        'https://admin.examhero.xyz/api/v1/mcq-preparation/user-mcq-bookmark-list/',
         options: Options(headers: {
           'accept': '*/*',
           'Authorization': 'Token ${authController.token.value}',

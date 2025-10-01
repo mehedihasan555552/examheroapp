@@ -1,4 +1,5 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:get/get.dart';
@@ -11,12 +12,12 @@ import 'package:mission_dmc/widgets/reusable_widgets.dart';
 
 class MCQListView extends StatefulWidget {
   const MCQListView({
-    super.key,
+    Key? key,
     required this.isSubjectWise,
     required this.isStartExam,
     required this.mcqTest,
     required this.testId,
-  });
+  }) : super(key: key);
 
   final bool isSubjectWise, isStartExam;
   final dynamic mcqTest;
@@ -27,7 +28,7 @@ class MCQListView extends StatefulWidget {
 }
 
 class _MCQListViewState extends State<MCQListView>
-    with TickerProviderStateMixin {
+    with SingleTickerProviderStateMixin {
   final AuthController _authController = Get.find();
   final MCQPreparationController _mcqPreparationController =
       Get.put(MCQPreparationController());
@@ -36,188 +37,84 @@ class _MCQListViewState extends State<MCQListView>
   dynamic _examData;
   Timer? _timerExamDurationLeft;
   int _examTimeLeftInSeconds = 0;
-  late AnimationController _pulseController;
-  late Animation<double> _pulseAnimation;
+  late AnimationController _animationController;
+  late Animation<double> _fadeAnimation;
+
+  // Device responsive detection
+  bool get isTablet => MediaQuery.of(context).size.width > 768;
+  double get responsivePadding => isTablet ? 24.0 : 16.0;
+  double getResponsiveFontSize(double baseFontSize) {
+    return isTablet ? baseFontSize * 1.2 : baseFontSize;
+  }
+
+  // Safe data access
+  String safeGetString(dynamic data, String key, {String defaultValue = ''}) {
+    try {
+      return data[key]?.toString() ?? defaultValue;
+    } catch (e) {
+      return defaultValue;
+    }
+  }
+
+  int safeGetInt(dynamic data, String key, {int defaultValue = 0}) {
+    try {
+      final value = data[key];
+      if (value is int) return value;
+      if (value is double) return value.toInt();
+      if (value is String) return int.tryParse(value) ?? defaultValue;
+      return defaultValue;
+    } catch (e) {
+      return defaultValue;
+    }
+  }
 
   @override
   void initState() {
     super.initState();
     _mcqPreparationController.clearMCQChoosenList();
     
-    // Initialize pulse animation for timer
-    _pulseController = AnimationController(
-      duration: const Duration(seconds: 1),
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 800),
       vsync: this,
     );
-    _pulseAnimation = Tween<double>(
-      begin: 1.0,
-      end: 1.1,
+    _fadeAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
     ).animate(CurvedAnimation(
-      parent: _pulseController,
+      parent: _animationController,
       curve: Curves.easeInOut,
     ));
-    
-    if (widget.isStartExam) {
-      _pulseController.repeat(reverse: true);
-    }
+    _animationController.forward();
   }
 
   @override
   void dispose() {
-    if (_timerExamDurationLeft != null) {
-      _timerExamDurationLeft?.cancel();
-    }
-    _pulseController.dispose();
+    _timerExamDurationLeft?.cancel();
+    _animationController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final testTitle = safeGetString(widget.mcqTest, 'title', defaultValue: 'Test');
+
     return Scaffold(
-      backgroundColor: Colors.grey[50],
-      appBar: _buildAppBar(),
-      body: FutureBuilder(
-        future: widget.isSubjectWise
-            ? _mcqPreparationController.fetchSectionWiseMCQList(
-                sectionId: widget.mcqTest['id'],
-                testId: widget.testId,
-              )
-            : _mcqPreparationController.fetchCategoryWiseMCQList(
-                examId: widget.mcqTest['id'],
-                testId: widget.testId,
-              ),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.done) {
-            if (snapshot.hasError) {
-              return _buildErrorWidget();
-            } else if (snapshot.hasData) {
-              final data = snapshot.data as dynamic;
-              _examData = data['exam'];
-              _initializeTimer();
-
-              return Obx(() {
-                return LoadingOverlay(
-                  isLoading: _mcqPreparationController.loadingMCQSubmission.value,
-                  progressIndicator: _buildLoadingIndicator(),
-                  child: Column(
-                    children: [
-                      if (widget.isStartExam) _buildTimerWidget(),
-                      _buildProgressIndicator(data['mcq_list'].length),
-                      Expanded(
-                        child: _buildMCQList(data['mcq_list']),
-                      ),
-                      if (widget.isStartExam) _buildSubmitButton(),
-                      const SizedBox(height: 16),
-                    ],
-                  ),
-                );
-              });
-            }
-          }
-          return _buildLoadingScreen();
-        },
-      ),
-    );
-  }
-
-  PreferredSizeWidget _buildAppBar() {
-    return AppBar(
-      elevation: 0,
-      backgroundColor: Theme.of(context).primaryColor,
-      title: Column(
-        children: [
-          Text(
-            widget.isStartExam ? 'পরীক্ষা চলমান' : 'অধ্যয়ন মোড',
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-            ),
-          ),
-          Text(
-            widget.mcqTest['title'],
-            style: const TextStyle(
-              fontSize: 12,
-              color: Colors.white70,
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ],
-      ),
-      centerTitle: true,
-      leading: IconButton(
-        icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
-        onPressed: () => _showExitConfirmation(),
-      ),
-      actions: [
-        if (!widget.isStartExam)
-          IconButton(
-            icon: const Icon(Icons.help_outline, color: Colors.white),
-            onPressed: () => _showHelpDialog(),
-          ),
-      ],
-    );
-  }
-
-  Widget _buildTimerWidget() {
-    return Container(
-      margin: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Colors.red[400]!, Colors.red[600]!],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(15),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.red.withOpacity(0.3),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
+      backgroundColor: Color(0xFF4A90E2),
+      body: SafeArea(
+        child: Column(
           children: [
-            AnimatedBuilder(
-              animation: _pulseAnimation,
-              builder: (context, child) {
-                return Transform.scale(
-                  scale: _pulseAnimation.value,
-                  child: Icon(
-                    Icons.access_time_rounded,
-                    color: Colors.white,
-                    size: 24,
-                  ),
-                );
-              },
-            ),
-            const SizedBox(width: 12),
-            Column(
-              children: [
-                const Text(
-                  'অবশিষ্ট সময়',
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
+            _buildAppBar(context, testTitle),
+            Expanded(
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.grey[50],
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(24),
+                    topRight: Radius.circular(24),
                   ),
                 ),
-                const SizedBox(height: 4),
-                Obx(() => Text(
-                  _mcqPreparationController.examTimeLeft.value,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 24,
-                    fontFamily: 'monospace',
-                  ),
-                )),
-              ],
+                child: _buildMainContent(),
+              ),
             ),
           ],
         ),
@@ -225,494 +122,253 @@ class _MCQListViewState extends State<MCQListView>
     );
   }
 
-  Widget _buildProgressIndicator(int totalQuestions) {
-    return Obx(() {
-      int answered = _mcqPreparationController.listMCQChoosen.length;
-      double progress = totalQuestions > 0 ? answered / totalQuestions : 0;
-      
-      return Container(
-        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        padding: const EdgeInsets.all(16),
+  Widget _buildAppBar(BuildContext context, String testTitle) {
+    return FadeTransition(
+      opacity: _fadeAnimation,
+      child: Container(
+        padding: EdgeInsets.all(responsivePadding),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: IconButton(
+                    icon: Icon(
+                      Icons.arrow_back_ios_new_rounded,
+                      color: Colors.white,
+                      size: isTablet ? 24 : 20,
+                    ),
+                    onPressed: () {
+                      _timerExamDurationLeft?.cancel();
+                      Navigator.pop(context);
+                    },
+                  ),
+                ),
+                Expanded(
+                  child: Center(
+                    child: Text(
+                      widget.isStartExam ? 'Exam Mode' : 'Study Mode',
+                      style: TextStyle(
+                        fontSize: getResponsiveFontSize(20),
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: IconButton(
+                    icon: Icon(
+                      widget.isStartExam ? Icons.quiz_rounded : Icons.menu_book_rounded,
+                      color: Colors.white,
+                      size: isTablet ? 24 : 20,
+                    ),
+                    onPressed: () {},
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: responsivePadding),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: Colors.white.withOpacity(0.3)),
+              ),
+              child: Text(
+                testTitle,
+                style: TextStyle(
+                  fontSize: getResponsiveFontSize(14),
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                ),
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMainContent() {
+    return FutureBuilder(
+      future: widget.isSubjectWise
+          ? _mcqPreparationController.fetchSectionWiseMCQList(
+              sectionId: safeGetInt(widget.mcqTest, 'id'),
+              testId: widget.testId,
+            )
+          : _mcqPreparationController.fetchCategoryWiseMCQList(
+              examId: safeGetInt(widget.mcqTest, 'id'),
+              testId: widget.testId,
+            ),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return _buildLoadingState();
+        }
+
+        if (snapshot.hasError) {
+          return _buildErrorState();
+        }
+
+        if (snapshot.hasData && snapshot.data != null) {
+          final data = snapshot.data as dynamic;
+          _examData = data['exam'];
+          
+          if (widget.isStartExam && _timerExamDurationLeft == null) {
+            _startExamTimer();
+          }
+
+          final mcqList = data['mcq_list'] as List<dynamic>? ?? [];
+          
+          if (mcqList.isEmpty) {
+            return _buildEmptyState();
+          }
+
+          return _buildQuestionsList(mcqList);
+        }
+
+        return _buildEmptyState();
+      },
+    );
+  }
+
+  Widget _buildLoadingState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          SpinKitPulse(
+            color: Color(0xFF4A90E2),
+            size: isTablet ? 60 : 50,
+          ),
+          SizedBox(height: responsivePadding),
+          Text(
+            'Loading questions...',
+            style: TextStyle(
+              fontSize: getResponsiveFontSize(16),
+              color: Colors.grey[600],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildErrorState() {
+    return Center(
+      child: Container(
+        margin: EdgeInsets.all(responsivePadding),
+        padding: EdgeInsets.all(responsivePadding * 1.5),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
+              color: Colors.black.withOpacity(0.1),
               blurRadius: 10,
               offset: const Offset(0, 2),
             ),
           ],
         ),
         child: Column(
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'অগ্রগতি',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.grey[700],
-                  ),
-                ),
-                Text(
-                  '$answered/$totalQuestions উত্তর দিয়েছেন',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey[600],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            LinearProgressIndicator(
-              value: progress,
-              backgroundColor: Colors.grey[200],
-              valueColor: AlwaysStoppedAnimation<Color>(
-                Theme.of(context).primaryColor,
-              ),
-              minHeight: 6,
-            ),
-          ],
-        ),
-      );
-    });
-  }
-
-  Widget _buildMCQList(List mcqList) {
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      itemCount: mcqList.length,
-      itemBuilder: (context, index) => _mcqItem(
-        data: mcqList[index],
-        context: context,
-        serialNumber: index + 1,
-        totalQuestions: mcqList.length,
-      ),
-    );
-  }
-
-  Widget _buildSubmitButton() {
-    return Obx(() {
-      return _mcqPreparationController.listMCQChoosen.isNotEmpty
-          ? Container(
-              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () async {
-                  if (_mcqPreparationController.loadingMCQSubmission.value) return;
-                  await _submitExam();
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Theme.of(context).primaryColor,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  elevation: 3,
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.send_rounded, color: Colors.white),
-                    const SizedBox(width: 8),
-                    const Text(
-                      'উত্তরপত্র জমা দিন',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            )
-          : const SizedBox.shrink();
-    });
-  }
-
-  Widget _mcqItem({
-    required dynamic data,
-    required BuildContext context,
-    required int serialNumber,
-    required int totalQuestions,
-  }) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.08),
-            blurRadius: 15,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildQuestionHeader(data, serialNumber, totalQuestions),
-            const SizedBox(height: 16),
-            _buildQuestionText(data['question'], serialNumber),
-            const SizedBox(height: 20),
-            _buildOptionsSection(data),
-            if (!widget.isStartExam && data['hints'] != null) ...[
-              const SizedBox(height: 16),
-              _buildHintsSection(data['hints']),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildQuestionHeader(dynamic data, int serialNumber, int totalQuestions) {
-    return Row(
-      children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          decoration: BoxDecoration(
-            color: Theme.of(context).primaryColor.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: Theme.of(context).primaryColor.withOpacity(0.3),
-            ),
-          ),
-          child: Text(
-            'প্রশ্ন $serialNumber/$totalQuestions',
-            style: TextStyle(
-              color: Theme.of(context).primaryColor,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ),
-        const Spacer(),
-        if (bannerController.count.value == 0)
-          _buildBookmarkButton(data),
-      ],
-    );
-  }
-
-  Widget _buildBookmarkButton(dynamic data) {
-    return Obx(() => Container(
-      decoration: BoxDecoration(
-        color: bannerController.bookmarkedItems.contains(data['id'])
-            ? Colors.amber.withOpacity(0.1)
-            : Colors.grey.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: IconButton(
-        onPressed: () => bannerController.addBookmarks(mcqId: data['id']),
-        icon: Icon(
-          bannerController.bookmarkedItems.contains(data['id'])
-              ? Icons.bookmark_rounded
-              : Icons.bookmark_border_rounded,
-          color: bannerController.bookmarkedItems.contains(data['id'])
-              ? Colors.amber[700]
-              : Colors.grey[600],
-          size: 22,
-        ),
-      ),
-    ));
-  }
-
-  Widget _buildQuestionText(String question, int serialNumber) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.grey[50],
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey[200]!),
-      ),
-      child: Text(
-        question,
-        style: const TextStyle(
-          fontSize: 16,
-          fontWeight: FontWeight.w600,
-          color: Colors.black87,
-          height: 1.5,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildOptionsSection(dynamic data) {
-    return Column(
-      children: [
-        _optionItem(data: data, optionName: 'option_one', optionLabel: 'ক'),
-        const SizedBox(height: 8),
-        _optionItem(data: data, optionName: 'option_two', optionLabel: 'খ'),
-        const SizedBox(height: 8),
-        _optionItem(data: data, optionName: 'option_three', optionLabel: 'গ'),
-        const SizedBox(height: 8),
-        _optionItem(data: data, optionName: 'option_four', optionLabel: 'ঘ'),
-      ],
-    );
-  }
-
-  Widget _buildHintsSection(String hints) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.blue.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.blue.withOpacity(0.2)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(
-            Icons.lightbulb_outline_rounded,
-            color: Colors.blue[600],
-            size: 20,
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'সহায়তা:',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.blue[700],
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  hints,
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.blue[800],
-                    height: 1.4,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _optionItem({
-    required dynamic data,
-    required String optionName,
-    required String optionLabel,
-  }) {
-    if (!widget.isStartExam) {
-      // Study mode
-      bool isCorrect = data['answer'] == optionName;
-      return Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: isCorrect ? Colors.green.withOpacity(0.1) : Colors.grey[50],
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isCorrect ? Colors.green : Colors.grey[300]!,
-            width: 2,
-          ),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 32,
-              height: 32,
-              decoration: BoxDecoration(
-                color: isCorrect ? Colors.green : Colors.grey[300],
-                shape: BoxShape.circle,
-              ),
-              child: Center(
-                child: Text(
-                  optionLabel,
-                  style: TextStyle(
-                    color: isCorrect ? Colors.white : Colors.grey[600],
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Text(
-                data[optionName],
-                style: TextStyle(
-                  fontSize: 15,
-                  color: isCorrect ? Colors.green[800] : Colors.black87,
-                  fontWeight: isCorrect ? FontWeight.w600 : FontWeight.normal,
-                  height: 1.4,
-                ),
-              ),
-            ),
-            if (isCorrect)
-              Icon(
-                Icons.check_circle_rounded,
-                color: Colors.green,
-                size: 24,
-              ),
-          ],
-        ),
-      );
-    } else {
-      // Exam mode
-      return Obx(() {
-        bool isAlreadyChosen = _mcqPreparationController.listMCQChoosen
-            .any((element) => element['id'] == data['id']);
-        bool isSelected = _mcqPreparationController.checkMCQChoosenOption(
-            id: data['id'], choosenOption: optionName);
-
-        return InkWell(
-          onTap: isAlreadyChosen ? null : () => _selectOption(data['id'], optionName),
-          borderRadius: BorderRadius.circular(12),
-          child: Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: isSelected ? Theme.of(context).primaryColor.withOpacity(0.1) : Colors.grey[50],
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: isSelected 
-                    ? Theme.of(context).primaryColor 
-                    : Colors.grey[300]!,
-                width: 2,
-              ),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 32,
-                  height: 32,
-                  decoration: BoxDecoration(
-                    color: isSelected ? Theme.of(context).primaryColor : Colors.grey[300],
-                    shape: BoxShape.circle,
-                  ),
-                  child: Center(
-                    child: Text(
-                      optionLabel,
-                      style: TextStyle(
-                        color: isSelected ? Colors.white : Colors.grey[600],
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Text(
-                    data[optionName],
-                    style: TextStyle(
-                      fontSize: 15,
-                      color: isSelected ? Theme.of(context).primaryColor : Colors.black87,
-                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                      height: 1.4,
-                    ),
-                  ),
-                ),
-                if (isSelected)
-                  Icon(
-                    Icons.radio_button_checked_rounded,
-                    color: Theme.of(context).primaryColor,
-                    size: 24,
-                  ),
-              ],
-            ),
-          ),
-        );
-      });
-    }
-  }
-
-  Widget _buildLoadingScreen() {
-    return Container(
-      color: Colors.grey[50],
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            SpinKitWave(
-              color: Theme.of(context).primaryColor,
-              size: 50.0,
-            ),
-            const SizedBox(height: 24),
-            Text(
-              'প্রশ্নপত্র লোড হচ্ছে...',
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.grey[600],
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildLoadingIndicator() {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          SpinKitWave(
-            color: Theme.of(context).primaryColor,
-            size: 40.0,
-          ),
-          const SizedBox(height: 16),
-          const Text(
-            'উত্তরপত্র জমা দেওয়া হচ্ছে...',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildErrorWidget() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
               Icons.error_outline_rounded,
-              size: 80,
+              size: isTablet ? 80 : 64,
               color: Colors.red[400],
             ),
-            const SizedBox(height: 24),
-            const Text(
-              'কোনো সমস্যা হয়েছে',
+            SizedBox(height: responsivePadding),
+            Text(
+              'Error Loading Questions',
               style: TextStyle(
-                fontSize: 20,
+                fontSize: getResponsiveFontSize(18),
                 fontWeight: FontWeight.bold,
-                color: Colors.black87,
+                color: Colors.red[700],
               ),
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: 8),
             Text(
-              'প্রশ্নপত্র লোড করতে সমস্যা হয়েছে',
+              'Unable to load the questions. Please try again.',
               style: TextStyle(
-                fontSize: 14,
+                fontSize: getResponsiveFontSize(14),
+                color: Colors.grey[600],
+              ),
+              textAlign: TextAlign.center,
+            ),
+            SizedBox(height: responsivePadding),
+            ElevatedButton(
+              onPressed: () => setState(() {}),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Color(0xFF4A90E2),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
+              ),
+              child: Text(
+                'Retry',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Container(
+        margin: EdgeInsets.all(responsivePadding),
+        padding: EdgeInsets.all(responsivePadding * 1.5),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 10,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.quiz_outlined,
+              size: isTablet ? 80 : 64,
+              color: Colors.grey[400],
+            ),
+            SizedBox(height: responsivePadding),
+            Text(
+              'No Questions Available',
+              style: TextStyle(
+                fontSize: getResponsiveFontSize(18),
+                fontWeight: FontWeight.bold,
+                color: Colors.grey[700],
+              ),
+            ),
+            SizedBox(height: 8),
+            Text(
+              'This test doesn\'t have any questions yet.',
+              style: TextStyle(
+                fontSize: getResponsiveFontSize(14),
                 color: Colors.grey[600],
               ),
               textAlign: TextAlign.center,
@@ -723,91 +379,545 @@ class _MCQListViewState extends State<MCQListView>
     );
   }
 
-  void _initializeTimer() {
-    if (widget.isStartExam && _examData != null) {
-      _examTimeLeftInSeconds = _examData['duration'] * 60;
+  Widget _buildQuestionsList(List<dynamic> mcqList) {
+    return Obx(() {
+      return LoadingOverlay(
+        isLoading: _mcqPreparationController.loadingMCQSubmission.value,
+        progressIndicator: SpinKitPulse(
+          color: Color(0xFF4A90E2),
+          size: 50.0,
+        ),
+        child: Column(
+          children: [
+            // Timer bar for exam mode
+            if (widget.isStartExam) _buildTimerBar(),
+            
+            // Questions list
+            Expanded(
+              child: FadeTransition(
+                opacity: _fadeAnimation,
+                child: ListView.builder(
+                  physics: const BouncingScrollPhysics(),
+                  padding: EdgeInsets.all(responsivePadding),
+                  itemCount: mcqList.length,
+                  itemBuilder: (context, index) {
+                    return SlideTransition(
+                      position: Tween<Offset>(
+                        begin: const Offset(1, 0),
+                        end: Offset.zero,
+                      ).animate(CurvedAnimation(
+                        parent: _animationController,
+                        curve: Interval(
+                          index * 0.1,
+                          1.0,
+                          curve: Curves.easeOut,
+                        ),
+                      )),
+                      child: _buildMCQItem(
+                        data: mcqList[index],
+                        context: context,
+                        serialNumber: index + 1,
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+            
+            // Submit button for exam mode
+            if (widget.isStartExam) _buildSubmitButton(),
+          ],
+        ),
+      );
+    });
+  }
+
+  Widget _buildTimerBar() {
+    return Container(
+      padding: EdgeInsets.all(responsivePadding),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.green[400]!, Colors.green[600]!],
+        ),
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(24),
+          topRight: Radius.circular(24),
+        ),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.timer_rounded,
+            color: Colors.white,
+            size: isTablet ? 24 : 20,
+          ),
+          SizedBox(width: 8),
+          Obx(() => Text(
+                _mcqPreparationController.examTimeLeft.value,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: getResponsiveFontSize(18),
+                ),
+              )),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMCQItem({
+    required dynamic data,
+    required BuildContext context,
+    required int serialNumber,
+  }) {
+    final question = safeGetString(data, 'question');
+    final hints = safeGetString(data, 'hints');
+    final questionId = safeGetInt(data, 'id');
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: EdgeInsets.all(responsivePadding),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Question header
+            Row(
+              children: [
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: Color(0xFF4A90E2),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Center(
+                    child: Text(
+                      '$serialNumber',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: getResponsiveFontSize(14),
+                      ),
+                    ),
+                  ),
+                ),
+                SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    question,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: getResponsiveFontSize(16),
+                      color: Colors.black87,
+                    ),
+                  ),
+                ),
+                // Bookmark button (only in study mode)
+                if (!widget.isStartExam) _buildBookmarkButton(questionId),
+              ],
+            ),
+            
+            SizedBox(height: responsivePadding),
+            
+            // Options
+            Column(
+              children: [
+                _buildOptionItem(data: data, optionName: 'option_one', optionLabel: 'A'),
+                SizedBox(height: 8),
+                _buildOptionItem(data: data, optionName: 'option_two', optionLabel: 'B'),
+                SizedBox(height: 8),
+                _buildOptionItem(data: data, optionName: 'option_three', optionLabel: 'C'),
+                SizedBox(height: 8),
+                _buildOptionItem(data: data, optionName: 'option_four', optionLabel: 'D'),
+              ],
+            ),
+            
+            // Hints section (only in study mode)
+            if (!widget.isStartExam && hints.isNotEmpty) ...[
+              SizedBox(height: responsivePadding),
+              Container(
+                width: double.infinity,
+                padding: EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.amber[50],
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.amber[200]!),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.lightbulb_outline_rounded,
+                          color: Colors.amber[700],
+                          size: 18,
+                        ),
+                        SizedBox(width: 6),
+                        Text(
+                          'Hint',
+                          style: TextStyle(
+                            fontSize: getResponsiveFontSize(12),
+                            fontWeight: FontWeight.bold,
+                            color: Colors.amber[700],
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      hints,
+                      style: TextStyle(
+                        fontSize: getResponsiveFontSize(12),
+                        color: Colors.amber[800],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBookmarkButton(int questionId) {
+    return Obx(() {
+      return bannerController.count.value == 0
+          ? Container(
+              decoration: BoxDecoration(
+                color: Colors.amber.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: IconButton(
+                onPressed: () {
+                  bannerController.addBookmarks(mcqId: questionId);
+                },
+                icon: Icon(
+                  bannerController.bookmarkedItems.contains(questionId)
+                      ? Icons.star_rounded
+                      : Icons.star_border_rounded,
+                  color: bannerController.bookmarkedItems.contains(questionId)
+                      ? Colors.amber
+                      : Colors.grey[400],
+                  size: isTablet ? 24 : 20,
+                ),
+              ),
+            )
+          : Container();
+    });
+  }
+
+  Widget _buildOptionItem({
+    required dynamic data,
+    required String optionName,
+    required String optionLabel,
+  }) {
+    final optionText = safeGetString(data, optionName);
+    final correctAnswer = safeGetString(data, 'answer');
+    final questionId = safeGetInt(data, 'id');
+
+    if (!widget.isStartExam) {
+      // Study mode: Show correct answer
+      final isCorrect = correctAnswer == optionName;
+      
+      return Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: isCorrect ? Colors.green[50] : Colors.grey[50],
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: isCorrect ? Colors.green[300]! : Colors.grey[200]!,
+            width: isCorrect ? 2 : 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 28,
+              height: 28,
+              decoration: BoxDecoration(
+                color: isCorrect ? Colors.green[100] : Colors.grey[200],
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: isCorrect ? Colors.green[400]! : Colors.grey[400]!,
+                  width: 2,
+                ),
+              ),
+              child: Center(
+                child: Text(
+                  optionLabel,
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: getResponsiveFontSize(12),
+                    color: isCorrect ? Colors.green[700] : Colors.grey[700],
+                  ),
+                ),
+              ),
+            ),
+            SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                optionText,
+                style: TextStyle(
+                  fontSize: getResponsiveFontSize(14),
+                  color: isCorrect ? Colors.green[800] : Colors.black87,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+            if (isCorrect)
+              Icon(
+                Icons.check_circle_rounded,
+                color: Colors.green[600],
+                size: isTablet ? 24 : 20,
+              ),
+          ],
+        ),
+      );
+    } else {
+      // Exam mode: Allow selection
+      return Obx(() {
+        bool isAlreadyChosen = _mcqPreparationController.listMCQChoosen
+            .any((element) => element['id'] == questionId);
+        bool isThisOptionSelected = _mcqPreparationController
+            .checkMCQChoosenOption(id: questionId, choosenOption: optionName);
+
+        return GestureDetector(
+          onTap: isAlreadyChosen
+              ? null
+              : () => _mcqPreparationController.setMCQChoosenOption(
+                    id: questionId,
+                    choosenOption: optionName,
+                  ),
+          child: Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: isThisOptionSelected ? Color(0xFF4A90E2).withOpacity(0.1) : Colors.grey[50],
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: isThisOptionSelected ? Color(0xFF4A90E2) : Colors.grey[200]!,
+                width: isThisOptionSelected ? 2 : 1,
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 28,
+                  height: 28,
+                  decoration: BoxDecoration(
+                    color: isThisOptionSelected ? Color(0xFF4A90E2).withOpacity(0.2) : Colors.grey[200],
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: isThisOptionSelected ? Color(0xFF4A90E2) : Colors.grey[400]!,
+                      width: 2,
+                    ),
+                  ),
+                  child: Center(
+                    child: Text(
+                      optionLabel,
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: getResponsiveFontSize(12),
+                        color: isThisOptionSelected ? Color(0xFF4A90E2) : Colors.grey[700],
+                      ),
+                    ),
+                  ),
+                ),
+                SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    optionText,
+                    style: TextStyle(
+                      fontSize: getResponsiveFontSize(14),
+                      color: isThisOptionSelected ? Color(0xFF4A90E2) : Colors.black87,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+                if (isThisOptionSelected)
+                  Icon(
+                    Icons.radio_button_checked_rounded,
+                    color: Color(0xFF4A90E2),
+                    size: isTablet ? 24 : 20,
+                  ),
+              ],
+            ),
+          ),
+        );
+      });
+    }
+  }
+
+  Widget _buildSubmitButton() {
+    return Obx(() {
+      return _mcqPreparationController.listMCQChoosen.isNotEmpty
+          ? Container(
+              padding: EdgeInsets.all(responsivePadding),
+              child: SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: _mcqPreparationController.loadingMCQSubmission.value
+                      ? null
+                      : _handleSubmitExam,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green[600],
+                    foregroundColor: Colors.white,
+                    padding: EdgeInsets.symmetric(vertical: responsivePadding),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(15),
+                    ),
+                    elevation: 2,
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.send_rounded,
+                        size: isTablet ? 24 : 20,
+                      ),
+                      SizedBox(width: 8),
+                      Text(
+                        'Submit Answer',
+                        style: TextStyle(
+                          fontSize: getResponsiveFontSize(16),
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            )
+          : Container();
+    });
+  }
+
+  void _startExamTimer() {
+    if (_examData != null) {
+      // Changed defaultValue from 60 to 30 (30 minutes)
+      _examTimeLeftInSeconds = safeGetInt(_examData, 'duration', defaultValue: 30) * 60;
       _mcqPreparationController.setFormatedTime(timeInSecond: _examTimeLeftInSeconds);
+      
       _timerExamDurationLeft = Timer.periodic(const Duration(seconds: 1), (timer) {
-        _examTimeLeftInSeconds--;
+        _examTimeLeftInSeconds = _examTimeLeftInSeconds - 1;
         if (_examTimeLeftInSeconds <= 0) {
           timer.cancel();
-          _handleTimeUp();
+          _showTimeUpDialog();
         }
         _mcqPreparationController.setFormatedTime(timeInSecond: _examTimeLeftInSeconds);
       });
     }
   }
 
-  void _selectOption(int questionId, String optionName) {
-    _mcqPreparationController.setMCQChoosenOption(
-      id: questionId,
-      choosenOption: optionName,
+
+  void _showTimeUpDialog() {
+    Get.dialog(
+      Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Container(
+          padding: EdgeInsets.all(responsivePadding * 1.5),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Colors.red[100]!, Colors.red[50]!],
+            ),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.timer_off_rounded,
+                size: isTablet ? 60 : 48,
+                color: Colors.red[700],
+              ),
+              SizedBox(height: responsivePadding),
+              Text(
+                'Time\'s Up!',
+                style: TextStyle(
+                  fontSize: getResponsiveFontSize(18),
+                  fontWeight: FontWeight.bold,
+                  color: Colors.red[800],
+                ),
+              ),
+              SizedBox(height: 8),
+              Text(
+                'Your exam time has expired and has been automatically submitted.',
+                style: TextStyle(
+                  fontSize: getResponsiveFontSize(14),
+                  color: Colors.red[700],
+                ),
+                textAlign: TextAlign.center,
+              ),
+              SizedBox(height: responsivePadding),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () {
+                    Get.back();
+                    Navigator.of(context).pop();
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red[600],
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: Text(
+                    'OK',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+      barrierDismissible: false,
     );
   }
 
-  Future<void> _submitExam() async {
-    _timerExamDurationLeft?.cancel();
-    dynamic result = await _mcqPreparationController.tryToSubmitMCQTest(
-      isSubjectWise: widget.isSubjectWise,
-      testId: widget.mcqTest['id'],
-    );
-    if (result != null) {
-      Get.off(() => ResultScreen(mcqTest: result));
+  Future<void> _handleSubmitExam() async {
+    if (_mcqPreparationController.loadingMCQSubmission.value) {
+      return;
     }
-  }
-
-  void _handleTimeUp() {
-    Get.snackbar(
-      'সময় শেষ',
-      "পরীক্ষার সময় শেষ হয়ে গেছে।",
-      backgroundColor: Colors.red,
-      colorText: Colors.white,
-      snackPosition: SnackPosition.BOTTOM,
-      duration: const Duration(seconds: 3),
-    );
-    Navigator.of(context).pop();
-  }
-
-  void _showExitConfirmation() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('পরীক্ষা ছেড়ে যেতে চান?'),
-        content: Text(widget.isStartExam 
-          ? 'আপনার উত্তরগুলো সংরক্ষিত হবে না।' 
-          : 'আপনি কি নিশ্চিত যে আপনি বের হতে চান?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('না'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              Navigator.pop(context);
-            },
-            child: const Text('হ্যাঁ'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showHelpDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('সহায়তা'),
-        content: const Text('এই মোডে আপনি সঠিক উত্তর দেখতে পারবেন এবং অধ্যয়ন করতে পারবেন।'),
-        actions: [
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('বুঝেছি'),
-          ),
-        ],
-      ),
-    );
+    
+    _timerExamDurationLeft?.cancel();
+    
+    try {
+      dynamic result = await _mcqPreparationController.tryToSubmitMCQTest(
+        isSubjectWise: widget.isSubjectWise,
+        testId: safeGetInt(widget.mcqTest, 'id'),
+      );
+      
+      if (result != null) {
+        Get.off(() => ResultScreen(mcqTest: result));
+      }
+    } catch (e) {
+      Get.snackbar(
+        'Error',
+        'Failed to submit exam. Please try again.',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+        snackPosition: SnackPosition.BOTTOM,
+      );
+    }
   }
 }

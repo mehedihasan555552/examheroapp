@@ -1,4 +1,3 @@
-
 // PDF Model Class
 class Pdf {
   final int id;
@@ -19,12 +18,39 @@ class Pdf {
 
   factory Pdf.fromJson(Map<String, dynamic> json) {
     return Pdf(
-      id: json['id'],
-      title: json['title'],
-      topic: json['topic'],
-      file: json['file'],
-      isFree: json['is_free'],
-      uploadedAt: DateTime.parse(json['uploaded_at']),
+      id: json['id'] ?? 0,
+      title: json['title'] ?? 'Untitled PDF',
+      topic: json['topic'] ?? 'General',
+      file: json['file'] ?? '',
+      isFree: json['is_free'] ?? true,
+      uploadedAt: json['uploaded_at'] != null 
+          ? DateTime.tryParse(json['uploaded_at'].toString()) ?? DateTime.now()
+          : DateTime.now(),
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'title': title,
+      'topic': topic,
+      'file': file,
+      'is_free': isFree,
+      'uploaded_at': uploadedAt.toIso8601String(),
+    };
+  }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is Pdf && other.id == id;
+  }
+
+  @override
+  int get hashCode => id.hashCode;
+
+  @override
+  String toString() {
+    return 'Pdf{id: $id, title: $title, topic: $topic, isFree: $isFree}';
   }
 }
